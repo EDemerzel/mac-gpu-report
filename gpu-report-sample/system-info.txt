@@ -1,0 +1,65 @@
+=== uname ===
+Darwin Ralphs-Mac.edemerzel-tech.asuscomm.com 22.6.0 Darwin Kernel Version 22.6.0: Tue Jul 15 08:22:28 PDT 2025; root:xnu-8796.141.3.713.2~2/RELEASE_X86_64 x86_64
+
+=== sw_vers ===
+ProductName:		macOS
+ProductVersion:		13.7.8
+BuildVersion:		22H730
+
+=== system_profiler SPHardwareDataType ===
+Hardware:
+
+    Hardware Overview:
+
+      Model Name: Mac
+      Model Identifier: VMware20,1
+      Processor Name: Unknown
+      Processor Speed: 2.86 GHz
+      Number of Processors: 1
+      Total Number of Cores: 6
+      L2 Cache: 2 MB
+      Memory: 16 GB
+      System Firmware Version: VMW201.00V.24006586.B64.2406042154
+      OS Loader Version: 577.140.2~30
+      Apple ROM Info: [MS_VM_CERT/SHA1/27d66596a61c48dd3dc7216fd715126e33f59ae7]Welcome to the Virtual Machine
+      SMC Version (system): 2.8f0
+      Serial Number (system): VMp1RScwvFfR
+      Hardware UUID: 564D1C6C-BFA8-9A38-EDF6-3DC6275D6CAF
+      Provisioning UDID: 564D1C6C-BFA8-9A38-EDF6-3DC6275D6CAF
+
+
+=== system_profiler SPDisplaysDataType ===
+Graphics/Displays:
+
+    Display:
+
+      Type: GPU
+      VRAM (Total): 128 MB
+      Device ID: 0x0405
+      Revision ID: 0x0000
+      Displays:
+        Display:
+          Resolution: 2163 x 1287
+          UI Looks like: 2163 x 1287
+          Framebuffer Depth: 24-Bit Color (ARGB8888)
+          Main Display: Yes
+          Mirror: Off
+          Online: Yes
+      Vendor ID: 0x15ad
+
+
+=== system_profiler SPSoftwareDataType ===
+Software:
+
+    System Software Overview:
+
+      System Version: macOS 13.7.8 (22H730)
+      Kernel Version: Darwin 22.6.0
+      Boot Volume: Macintosh HD
+      Boot Mode: Normal
+      Computer Name: Ralph’s Mac
+      User Name: Ralph O'Flinn (ralphoflinn)
+      Secure Virtual Memory: Enabled
+      System Integrity Protection: Enabled
+      Time since boot: 1 hour, 29 minutes
+
