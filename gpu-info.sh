@@ -97,6 +97,13 @@ run_glxinfo_probe() {
   fi
   echo "glxinfo error output:"
   printf '%s\n' "$glx_output" | head -40
+
+  if printf '%s\n' "$glx_output" | grep -qi "CGLChoosePixelFormat error"; then
+    echo
+    echo "Hint: the X server is reachable, but no compatible OpenGL pixel format is available."
+    echo "Hint: this is common in virtualized GPUs or limited XQuartz/driver combinations."
+  fi
+
   echo
   echo "Likely cause: glxinfo and the active X server are not compatible for GLX probing."
   echo

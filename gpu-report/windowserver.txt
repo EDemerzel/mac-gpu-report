@@ -1,5 +1,5 @@
 === launchctl print system/com.apple.windowserver ===
 
 === ps aux | grep WindowServer ===
-_windowserver      145   5.7  0.9 35798376 153736   ??  Ss    3:46AM  22:47.82 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon
+_windowserver      145   4.6  0.7 35768260 124124   ??  Ss    3:46AM  33:04.67 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon
 _windowserver      299   0.0  0.0 33646864   1572   ??  S     3:46AM   0:00.03 /usr/sbin/distnoted agent

@@ -24,7 +24,7 @@ It is designed for quick diagnostics on physical Macs and virtualized macOS envi
 - macOS
 - Bash
 - Built-in macOS tools used when available (for example: `system_profiler`, `ioreg`, `launchctl`, `top`, `vm_stat`)
-- Optional: `glxinfo` (for X11 OpenGL probe). If unavailable or incompatible, the script records a friendly skip message.
+- Optional: `glxinfo` (for X11 OpenGL probe). If unavailable or incompatible, the script records detailed diagnostics and remediation hints.
 
 ## Usage
 
@@ -69,9 +69,10 @@ The script writes the following files into the output directory:
 - `Tool not available: <name>` appears in output:
   - The script keeps running and records missing tools instead of failing.
   - On macOS, most required tools are built in. If `glxinfo` is missing, OpenGL X11 probing is skipped.
-- `OpenGL probe skipped: glxinfo is incompatible with the current X server setup`:
-  - This is common when XQuartz is not running, `DISPLAY` is not usable, or `glxinfo` cannot talk to the active X server.
-  - If needed, start XQuartz and verify `DISPLAY` before rerunning.
+- `OpenGL probe failed (...)` appears in `opengl.txt`:
+  - The report now includes captured `glxinfo` error text plus an `X11/GLX diagnostics` section.
+  - If you see `unable to open display`, start XQuartz and verify `DISPLAY`.
+  - If you see `CGLChoosePixelFormat error: invalid pixel format`, the X server is reachable but a compatible GL pixel format is not available (common on virtualized GPUs).
 - Empty or short sections (especially WindowServer/launchctl output):
   - This can happen due to permissions, session type, or virtualization differences.
 - Report content includes sensitive environment/process details:
