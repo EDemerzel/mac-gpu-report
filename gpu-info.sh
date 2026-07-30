@@ -36,6 +36,143 @@ find_glxinfo() {
   return 1
 }
 
+resolve_display() {
+  if [ -n "${DISPLAY:-}" ]; then
+    echo "$DISPLAY"
+    return 0
+  fi
+
+  if command -v launchctl >/dev/null 2>&1; then
+    local launch_display=""
+    launch_display=$(launchctl getenv DISPLAY 2>/dev/null || true)
+    if [ -n "$launch_display" ]; then
+      echo "$launch_display"
+      return 0
+    fi
+  fi
+
+  if [ -n "${XAUTHORITY:-}" ] && [ -S /private/tmp/.X11-unix/X0 ]; then
+    echo ":0"
+    return 0
+  fi
+
+  echo ":0"
+}
+
+run_glxinfo_probe() {
+  local label="$1"
+  shift
+
+  local glxinfo_bin=""
+  if ! glxinfo_bin=$(find_glxinfo 2>/dev/null); then
+    echo "=== $label ==="
+    echo "OpenGL tool not available: glxinfo"
+    return 0
+  fi
+
+  echo "=== $label ==="
+  local display_arg="$(resolve_display)"
+  if [ -n "$display_arg" ]; then
+    echo "DISPLAY=$display_arg"
+  fi
+
+  local glx_output=""
+  glx_output=$("$glxinfo_bin" -display "$display_arg" "$@" 2>&1)
+  local glx_exit=$?
+  local glx_has_error=0
+
+  if printf '%s\n' "$glx_output" | grep -qiE 'unable to open display|xlib:|error:'; then
+    glx_has_error=1
+  fi
+
+  if [ "$glx_exit" -eq 0 ] && [ "$glx_has_error" -eq 0 ]; then
+    printf '%s\n' "$glx_output"
+    return 0
+  fi
+
+  if [ "$glx_exit" -eq 0 ] && [ "$glx_has_error" -eq 1 ]; then
+    echo "OpenGL probe failed (glxinfo exited 0 but reported an error)."
+  else
+    echo "OpenGL probe failed (exit=$glx_exit)."
+  fi
+  echo "glxinfo error output:"
+  printf '%s\n' "$glx_output" | head -40
+  echo
+  echo "Likely cause: glxinfo and the active X server are not compatible for GLX probing."
+  echo
+  diagnose_glx_probe "$display_arg"
+}
+
+find_xdpyinfo() {
+  local candidates=(
+    "/opt/X11/bin/xdpyinfo"
+    "/usr/local/bin/xdpyinfo"
+    "/usr/X11/bin/xdpyinfo"
+  )
+
+  for candidate in "${candidates[@]}"; do
+    if [ -x "$candidate" ]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  if command -v xdpyinfo >/dev/null 2>&1; then
+    command -v xdpyinfo
+    return 0
+  fi
+
+  return 1
+}
+
+diagnose_glx_probe() {
+  local display_arg="$1"
+  echo "=== X11/GLX diagnostics ==="
+
+  if pgrep -x Xquartz >/dev/null 2>&1 || pgrep -x X11.bin >/dev/null 2>&1; then
+    echo "XQuartz process: detected"
+  else
+    echo "XQuartz process: not detected"
+    echo "Hint: start XQuartz, then rerun the script."
+  fi
+
+  if [ -S /private/tmp/.X11-unix/X0 ]; then
+    echo "X11 socket /private/tmp/.X11-unix/X0: present"
+  else
+    echo "X11 socket /private/tmp/.X11-unix/X0: not found"
+    echo "Hint: XQuartz may not be fully initialized yet."
+  fi
+
+  if [ -n "${XAUTHORITY:-}" ]; then
+    echo "XAUTHORITY: ${XAUTHORITY}"
+  else
+    echo "XAUTHORITY: not set"
+  fi
+
+  local xdpyinfo_bin=""
+  if ! xdpyinfo_bin=$(find_xdpyinfo 2>/dev/null); then
+    echo "xdpyinfo: not available"
+    echo "Hint: install XQuartz tools to enable deeper X11 checks."
+    return 0
+  fi
+
+  local xdpy_out=""
+  if xdpy_out=$("$xdpyinfo_bin" -display "$display_arg" 2>&1); then
+    echo "xdpyinfo: display connection OK"
+    if printf '%s\n' "$xdpy_out" | grep -q "GLX"; then
+      echo "GLX extension: present"
+    else
+      echo "GLX extension: not reported"
+      echo "Hint: this X server does not expose GLX; glxinfo -B cannot report OpenGL renderer details here."
+    fi
+  else
+    echo "xdpyinfo: failed to connect to DISPLAY=$display_arg"
+    printf '%s\n' "$xdpy_out" | head -20
+    echo "Hint: verify DISPLAY and XQuartz permissions."
+    echo "Hint: from an XQuartz terminal, try: echo \$DISPLAY"
+  fi
+}
+
 log "Starting GPU diagnostics"
 
 {
@@ -128,29 +265,14 @@ log "Starting GPU diagnostics"
 } > "$OUTDIR/windowserver.txt" 2>&1
 
 {
-  echo "=== OpenGL renderer ==="
-  GLXINFO_BIN=""
-  if GLXINFO_BIN=$(find_glxinfo 2>/dev/null); then
-    "$GLXINFO_BIN" 2>/dev/null | grep -i 'renderer' || true
+  echo "=== macOS display/OpenGL summary ==="
+  if command -v system_profiler >/dev/null 2>&1; then
+    system_profiler SPDisplaysDataType 2>/dev/null | grep -iE 'Chipset Model|VRAM|Metal|Resolution|Framebuffer|Displays' || true
   else
-    echo "OpenGL tool not available: glxinfo"
+    report_missing system_profiler
   fi
   echo
-  echo "=== OpenGL vendor ==="
-  GLXINFO_BIN=""
-  if GLXINFO_BIN=$(find_glxinfo 2>/dev/null); then
-    "$GLXINFO_BIN" 2>/dev/null | grep -i 'vendor' || true
-  else
-    echo "OpenGL tool not available: glxinfo"
-  fi
-  echo
-  echo "=== OpenGL version ==="
-  GLXINFO_BIN=""
-  if GLXINFO_BIN=$(find_glxinfo 2>/dev/null); then
-    "$GLXINFO_BIN" 2>/dev/null | grep -i 'version' || true
-  else
-    echo "OpenGL tool not available: glxinfo"
-  fi
+  run_glxinfo_probe "X11 OpenGL probe (-B)" -B
 } > "$OUTDIR/opengl.txt" 2>&1
 
 {
