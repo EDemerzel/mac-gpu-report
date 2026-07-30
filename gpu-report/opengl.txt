@@ -1,0 +1,5 @@
+=== OpenGL renderer ===
+
+=== OpenGL vendor ===
+
+=== OpenGL version ===

@@ -1,0 +1,106 @@
+=== hardware perf ===
+Processes: 430 total, 2 running, 1 stuck, 427 sleeping, 1563 threads 
+2026/07/30 04:01:40
+Load Avg: 2.36, 1.93, 1.22 
+CPU usage: 5.15% user, 12.37% sys, 82.47% idle 
+SharedLibs: 557M resident, 96M data, 56M linkedit.
+MemRegions: 157228 total, 1977M resident, 266M private, 793M shared.
+PhysMem: 8346M used (1223M wired, 0B compressor), 8037M unused.
+VM: 25T vsize, 3442M framework vsize, 0(0) swapins, 0(0) swapouts.
+Networks: packets: 8740/8731K in, 6300/2681K out.
+Disks: 111844/2358M read, 18860/213M written.
+
+PID   COMMAND          %CPU TIME     #TH   #WQ #PORTS MEM   PURG  CMPRS PGRP PPID STATE    BOOSTS   %CPU_ME %CPU_OTHRS UID FAULTS  COW  MSGSENT MSGRECV SYSBSD  SYSMACH CSW     PAGEINS IDLEW  POWER INSTRS CYCLES USER                  #MREGS RPRVT VPRVT VSIZE KPRVT KSHRD
+1106  head             0.0  00:00.00 1     0   12     248K  0B    0B    1054 1054 sleeping *0[1]    0.00000 0.00000    501 349     81   32      16      126     68      2       1       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1105  top              0.0  00:00.16 1/1   0   17     1564K 0B    0B    1054 1054 running  *0[1]    0.00000 0.00000    0   1308    119  348427  174213  1891    177123  9       3       0      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+1104  mdworker_shared  0.0  00:00.03 5     2   51     1120K 0B    0B    1104 1    sleeping *0[1]    0.00000 0.00000    501 5766    199  489     214     1434    680     75      18      0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1076  mdworker_shared  0.0  00:00.06 5     2   50     1236K 0B    0B    1076 1    sleeping *0[1]    0.00000 0.00000    501 13970   199  582     248     4237    1641    180     18      0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1054  bash             0.0  00:00.01 1     0   12     496K  0B    0B    1054 1000 sleeping *0[1]    0.00000 0.00000    501 2084    1485 112     55      1202    112     60      6       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1051  mdworker_shared  0.0  00:00.03 3     1   47     1148K 0B    0B    1051 1    sleeping *0[1]    0.00000 0.00000    501 4051    196  520     225     1105    577     110     18      1      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1050  NewsToday2       0.0  00:00.39 10    8/2 144    10M   92K   0B    1050 1    sleeping *0[1]    0.00000 0.00000    501 15480   962  662     261     14554   1749    1116    640     9      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1049  countryd         0.0  00:00.01 2     1   23     652K  0B    0B    1049 1    sleeping  0[0]    0.00000 0.00000    0   1277    151  91      39      386     204     31      5       0      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+1014  Code - Insiders  0.0  00:01.22 21    1   84     110M  0B    0B    969  991  sleeping *0[1]    0.00000 0.00000    501 66634   974  180     62      14336   640     12698   5243    20     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+1000  zsh              0.0  00:00.01 1     0   22     784K  0B    0B    1000 993  sleeping *0[1]    0.00000 0.00000    501 905     208  70      29      1576    180     54      9       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+996   Code - Insiders  0.0  00:04.31 28    1   131    161M  0B    0B    969  969  sleeping *0[869]  0.00000 0.00000    501 210943  1150 22661   14502   70058   43881   27000   4471    205    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+995   Code - Insiders  0.0  00:00.37 24    1   120    30M   0B    0B    969  969  sleeping *0[15]   0.00000 0.00000    501 18421   215  789     187     7367    2985    4874    405     106    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+994   Code - Insiders  0.0  00:01.83 23    1   113    34M   0B    0B    969  969  sleeping *0[239]  0.00000 0.00000    501 108035  216  5891    3371    35510   11020   12867   418     133    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+993   Code - Insiders  0.0  00:00.55 23    1   100    34M   0B    0B    969  969  sleeping *0[31]   0.00000 0.00000    501 21979   224  1651    388     9471    5043    5583    381     512    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+991   Code - Insiders  0.0  00:00.94 23    1   112    61M   0B    0B    969  969  sleeping *0[36]   0.00000 0.00000    501 34069   221  1000    371     12035   2743    6023    989     49     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+989   mdworker_shared  0.0  00:00.14 4     1   49     1132K 0B    0B    989  1    sleeping *0[1]    0.00000 0.00000    501 20144   198  694     287     4827    1899    927     18      0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+975   Code - Insiders  0.0  00:09.97 17    1   238    244M  0B    0B    969  969  sleeping *0[3966] 0.00000 0.00000    501 385399  2128 59665   33673   91706   118361  57590   6723    1066   0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+974   Code - Insiders  0.0  00:00.28 12    1   101    5656K 0B    0B    969  969  sleeping *0[182]  0.00000 0.00000    501 8619    190  1221    695     10866   2325    2731    1267    485    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+973   Code - Insiders  0.0  00:05.05 11    1   131    102M  0B    0B    969  969  sleeping *1[10]   0.00000 0.00000    501 1056241 333  12458   4971    15045   39652   14592   1350    1436   0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+972   chrome_crashpad_ 0.0  00:00.23 8     4   106    3920K 32K   0B    971  1    sleeping *0[3]    0.00000 0.00000    501 35752   168  63402   31655   12804   63744   466     222     0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+970   storekitagent    0.0  00:00.16 2     1   84     3508K 128K  0B    970  1    sleeping *0[1]    0.00000 0.00000    501 5554    364  418     127     5946    1180    980     96      8      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+969   Code - Insiders  0.0  00:03.88 47    2   481    65M   40K   0B    969  1    sleeping *0[257]  0.00000 0.00000    501 137435  738  38013   15984   53957   108949  36833   12831   187    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+967   UIKitSystem      0.0  00:00.09 2     1   87     3804K 52K   0B    967  1    sleeping *0[5]    0.00000 0.00000    501 6659    342  603     191     4549    1214    623     132     18     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+966   ScreenTimeWidget 0.0  00:00.16 4     3/1 93     5844K 0B    0B    966  1    sleeping *0[1]    0.00000 0.00000    501 9281    753  358     99      2435    745     451     422     2      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+960   memoryanalyticsd 0.0  00:00.01 2     1   40     1032K 0B    0B    960  1    sleeping  0[0]    0.00000 0.00000    0   1389    152  119     51      793     279     71      8       4      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+954   CAReportingServi 0.0  00:00.05 2     1   38     1224K 0B    0B    954  1    sleeping *0[2]    0.00000 0.00000    0   2057    229  15898   7955    2044    8782    368     46      44     0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+953   com.apple.audio. 0.0  00:00.01 2     1   23     3304K 0B    0B    953  1    sleeping *0[2]    0.00000 0.00000    0   2006    162  90      42      470     203     27      2       2      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+951   DockHelper       0.0  00:00.14 3     1   167    6932K 0B    0B    951  1    sleeping *0[4]    0.00000 0.00000    501 7724    451  4278    990     2351    6621    4030    7       20     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+937   zsh              0.0  00:00.02 1     0   22     1008K 0B    0B    937  746  sleeping *0[1]    0.00000 0.00000    501 1368    376  93      35      2272    192     184     9       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+932   quartz-wm        0.0  00:00.15 3     1   72     2160K 0B    0B    932  926  sleeping *0[1]    0.00000 0.00000    501 2735    356  3190    193     10071   9220    4939    19      6      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+931   containermanager 0.0  00:00.01 2     1   29     636K  0B    0B    931  1    sleeping *0[2]    0.00000 0.00000    89  1707    149  115     47      499     263     42      2       2      0.0   0      0      _spotlight            N/A    N/A   N/A   N/A   N/A   N/A  
+927   Xquartz          0.0  00:00.00 1     0   24     628K  0B    0B    927  926  sleeping *0[1]    0.00000 0.00000    501 562     108  63      21      180     134     24      0       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+926   xinit            0.0  00:00.00 1     0   12     472K  0B    0B    747  748  sleeping *0[1]    0.00000 0.00000    501 515     138  41      19      273     86      15      0       1      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+748   bash             0.0  00:00.01 1     0   12     548K  0B    0B    747  747  sleeping *0[1]    0.00000 0.00000    501 2061    1215 109     54      1089    141     53      7       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+747   launchd_startx   0.0  00:00.00 2     1   23     508K  0B    0B    747  1    sleeping *0[1]    0.00000 0.00000    501 753     116  110     36      348     233     53      1       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+746   xterm            0.0  00:00.07 1     0   12     2496K 0B    0B    734  1    sleeping *0[1]    0.00000 0.00000    501 2077    269  102     39      9771    240     2643    38      1012   0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+744   mdbulkimport     0.0  00:00.41 2     1   51     2608K 0B    0B    744  1    sleeping *0[1]    0.00000 0.00000    89  19194   212  561     230     33741   10892   3473    18      9      0.0   0      0      _spotlight            N/A    N/A   N/A   N/A   N/A   N/A  
+742   trustd           0.0  00:00.13 2     1   42     2440K 176K  0B    742  1    sleeping *0[53]   0.00000 0.00000    89  3085    178  275     144     4554    1606    2510    17      9      0.0   0      0      _spotlight            N/A    N/A   N/A   N/A   N/A   N/A  
+738   XprotectService  0.0  00:10.65 2     1   25     1232K 0B    0B    738  1    sleeping *0[41]   0.00000 0.00000    0   1096792 629  217     205     1183082 5348    4151    3932    2      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+734   X11.bin          0.0  00:03.65 8     1   293    26M   372K  0B    734  1    sleeping  0[129]  0.00000 0.00000    501 47551   1221 90241   19225   102134  183555  70636   183     1591   0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+733   mediaanalysisd   0.0  00:00.06 2     1   61     4084K 296K  0B    733  1    sleeping  0[0]    0.00000 0.00000    501 3977    289  223     75      1294    530     227     41      4      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+732   PlugInLibrarySer 0.0  00:00.00 2     1   26     616K  0B    0B    732  1    sleeping  0[0]    0.00000 0.00000    501 993     142  116     45      389     242     41      2       0      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+731   ScopedBookmarkAg 0.0  00:00.05 3     2   52     1348K 0B    0B    731  1    sleeping *0[3]    0.00000 0.00000    501 3301    186  295     173     2250    729     389     3       3      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+730   photolibraryd    0.0  00:00.22 2     1   79     4132K 604K  0B    730  1    sleeping  0[0]    0.00000 0.00000    501 6195    317  741     219     10588   1899    1148    146     13     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+729   photoanalysisd   0.0  00:00.14 3     2   71     3520K 156K  0B    729  1    sleeping *0[1]    0.00000 0.00000    501 4880    320  256     79      1629    650     465     262     4      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+728   backgroundassets 0.0  00:00.01 2     1   44     1060K 0B    0B    728  1    sleeping *0[1]    0.00000 0.00000    501 2409    200  148     50      562     344     109     25      1      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+727   dprivacyd        0.0  00:00.06 2     1   26     1276K 48K   0B    727  1    sleeping *0[1]    0.00000 0.00000    0   3092    179  119     55      4044    860     559     12      2      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+720   promotedcontentd 0.0  00:00.27 3     1   80     3100K 0B    0B    720  1    sleeping *0[25]   0.00000 0.00000    501 5579    381  682     337     12784   1753    1748    232     112    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+719   com.apple.AppSto 0.0  00:00.01 2     1   29     3592K 0B    0B    719  1    sleeping *0[6]    0.00000 0.00000    0   1874    152  92      39      435     221     55      2       0      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+718   installcoordinat 0.0  00:00.02 2     1   41     928K  0B    0B    718  1    sleeping  0[0]    0.00000 0.00000    274 2255    194  118     37      651     271     72      4       2      0.0   0      0      _installcoordinationd N/A    N/A   N/A   N/A   N/A   N/A  
+717   appstoreagent    0.0  00:00.19 2     1   108    3176K 144K  0B    717  1    sleeping *0[10]   0.00000 0.00000    501 6981    413  561     175     7825    1355    1436    181     76     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+716   ASPCarryLog      0.0  00:00.03 3     2   36     1088K 0B    0B    716  1    sleeping *0[1]    0.00000 0.00000    0   2531    197  133     50      789     313     89      13      1      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+714   ControlCenterSet 0.0  00:00.90 3     1   249    20M   0B    0B    714  1    sleeping  0[336]  0.00000 0.00000    501 19508   809  10248   4198    15775   26846   7391    23      107    0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+713   AccessibilitySet 0.0  00:00.29 4     1   314    11M   0B    0B    713  1    sleeping  0[16]   0.00000 0.00000    501 12591   892  2730    836     5556    4990    2151    144     14     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+705   fbahelperd       0.0  00:00.01 2     1   29     904K  0B    0B    705  1    sleeping *0[1]    0.00000 0.00000    0   1848    173  103     47      469     220     40      5       0      0.0   0      0      root                  N/A    N/A   N/A   N/A   N/A   N/A  
+704   nsattributedstri 0.0  00:00.31 4     1   149    12M   0B    0B    704  1    sleeping *0[7]    0.00000 0.00000    501 12601   493  2014    1171    27337   5608    3058    2       65     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+703   betaenrollmentd  0.0  00:00.05 2     1   62     6800K 0B    0B    703  1    sleeping *0[8]    0.00000 0.00000    501 4017    201  259     74      952     589     240     2       1      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+702   SUOSUPreferenceP 0.0  00:00.44 3     1   192    11M   0B    0B    702  1    sleeping  0[15]   0.00000 0.00000    501 23595   796  3424    1170    8232    9001    2853    20      14     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+701   extensionkitserv 0.0  00:00.01 2     1   30     972K  0B    0B    701  1    sleeping *0[1]    0.00000 0.00000    501 1956    176  139     50      536     300     78      2       2      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+700   GeneralSettings  0.0  00:00.52 3     1   193    9608K 0B    0B    700  1    sleeping  0[84]   0.00000 0.00000    501 11557   740  7986    3458    12988   19900   5525    20      22     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+699   passd            0.0  00:00.24 3     2   139    3100K 168K  0B    699  1    sleeping *0[6]    0.00000 0.00000    501 6286    492  629     221     5846    1612    1299    444     20     0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+698   progressd        0.0  00:00.16 2     1   55     1704K 0B    0B    698  1    sleeping  0[0]    0.00000 0.00000    501 6303    277  187     61      4062    1460    364     140     4      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+694   VPN              0.0  00:00.05 3     1   159    2704K 0B    0B    694  1    sleeping  0[14]   0.00000 0.00000    501 3944    351  668     160     1372    1578    566     18      6      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+693   GameControllerMa 0.0  00:00.05 3     1   149    2736K 0B    0B    693  1    sleeping  0[15]   0.00000 0.00000    501 3967    336  629     143     1273    1461    611     15      6      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+692   TrackpadExtensio 0.0  00:00.04 3     1   163    2732K 0B    0B    692  1    sleeping  0[15]   0.00000 0.00000    501 3991    341  709     193     1336    1538    552     12      6      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+691   MouseExtension   0.0  00:00.05 3     1   160    2748K 0B    0B    691  1    sleeping  0[15]   0.00000 0.00000    501 4545    357  676     162     1318    1532    509     14      6      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+689   WalletSettingsEx 0.0  00:00.09 3     1   158    3148K 0B    0B    689  1    sleeping  0[15]   0.00000 0.00000    501 5441    379  645     153     1447    1498    636     184     6      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+688   ClassKitSettings 0.0  00:00.06 3     1   156    2848K 0B    0B    688  1    sleeping  0[15]   0.00000 0.00000    501 4337    347  656     164     1426    1525    650     37      7      0.0   0      0      ralphoflinn           N/A    N/A   N/A   N/A   N/A   N/A  
+
+=== vm_stat ===
+Mach Virtual Memory Statistics: (page size of 4096 bytes)
+Pages free:                             1808628.
+Pages active:                            862763.
+Pages inactive:                          960422.
+Pages speculative:                       248992.
+Pages throttled:                              0.
+Pages wired down:                        313046.
+Pages purgeable:                           5588.
+"Translation faults":                  13073478.
+Pages copy-on-write:                     258278.
+Pages zero filled:                      8474410.
+Pages reactivated:                          672.
+Pages purged:                              2888.
+File-backed pages:                      1192661.
+Anonymous pages:                         879516.
+Pages stored in compressor:                   0.
+Pages occupied by compressor:                 0.
+Decompressions:                               0.
+Compressions:                                 0.
+Pageins:                                 609188.
+Pageouts:                                     0.
+Swapins:                                      0.
+Swapouts:                                     0.
