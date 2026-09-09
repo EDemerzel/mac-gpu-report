@@ -1,2 +1,165 @@
-*.sh text eol=lf
+# Set LF as the default line ending for text files.
+# Git will auto-detect text files. For those it identifies as text, it will normalize to LF.
+# Files explicitly marked as binary or with a different eol will override this.
+* text=auto eol=lf
+
+# .NET specific files - explicitly marked as text, will use default LF
+*.cs text diff=csharp
+*.csx text diff=csharp
+*.vb text
+*.fs text
+*.fsx text
+*.fsi text
+
+# Project and solution files - explicitly marked as text, will use default LF
+*.csproj text
+*.vbproj text
+*.fsproj text
+*.sln text
+*.slnx text
+
+# Configuration files
+*.config text
+*.json text
+*.xml text
+*.props text
+*.targets text
+*.resx text eol=crlf
+# Keep CRLF for .resx files for Visual Studio compatibility
+*.settings text
+
+# Package and dependency files - explicitly marked as text, will use default LF
+*.nuspec text
+packages.config text
+Directory.Build.props text
+Directory.Build.targets text
+Directory.Packages.props text
+global.json text
+nuget.config text
+paket.dependencies text
+paket.lock text
+
+# Documentation and markup
 *.md text eol=lf
+*.rst text
+*.txt text
+*.rtf text
+*.docx binary
+*.pdf binary
+
+# Web files - explicitly marked as text, will use default LF
+*.html text
+*.htm text
+*.css text
+*.scss text
+*.sass text
+*.less text
+*.js text
+*.ts text
+*.jsx text
+*.tsx text
+*.vue text
+*.svg text
+# SVG files are text-based
+
+# Data files
+*.sql text
+*.csv text eol=crlf
+# Keep CRLF for CSV files (e.g., Excel compatibility)
+*.tsv text
+# Will default to LF
+*.tab text
+# Will default to LF
+
+# Scripts and batch files
+*.sh text eol=lf
+# Shell scripts, explicitly text, will use default LF
+*.ps1 text eol=crlf
+# Keep CRLF for Windows PowerShell scripts
+*.psm1 text eol=crlf
+# Keep CRLF
+*.psd1 text eol=crlf
+# Keep CRLF
+*.bat text eol=crlf
+# Keep CRLF for Windows batch files
+*.cmd text eol=crlf
+# Keep CRLF
+
+# Docker files - explicitly marked as text, will use default LF
+Dockerfile text
+*.dockerfile text
+docker-compose*.yml text
+# YAML files, explicitly text, will use default LF
+
+# YAML files (generic) - explicitly marked as text, will use default LF
+*.yml text
+*.yaml text
+
+# Other specific text files
+CODEOWNERS text
+*.pem text
+# PEM files are text, will use default LF
+
+# Binary files - explicitly marked as binary
+*.dll binary
+*.exe binary
+*.pdb binary
+*.lib binary
+*.obj binary
+*.exp binary
+*.ilk binary
+*.msi binary
+*.msm binary
+*.zip binary
+*.7z binary
+*.rar binary
+*.tar binary
+*.gz binary
+*.nupkg binary
+*.snupkg binary
+
+# Image files - explicitly marked as binary (except SVG which is text)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.tiff binary
+*.webp binary
+
+# Font files - explicitly marked as binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+
+# Certificate and key files (except .pem which is text)
+*.pfx binary
+*.p12 binary
+*.cer binary
+*.crt binary
+*.der binary
+*.key binary
+
+# Visual Studio files
+*.suo binary
+*.user text
+# .user files are often XML, text, will use default LF
+*.userosscache binary
+*.sln.docstates binary
+*.userprefs text
+# .userprefs files are often XML, text, will use default LF
+
+# Rider files
+*.DotSettings text
+*.DotSettings.user text
+
+# Test files
+*.testsettings text
+*.runsettings text
+
+# Build output tracking - Mark contents of these directories as binary
+[Bb]in/ binary
+[Oo]bj/ binary
