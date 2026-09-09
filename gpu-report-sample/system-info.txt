@@ -1,5 +1,5 @@
 === uname ===
-Darwin Ralphs-Mac.edemerzel-tech.asuscomm.com 22.6.0 Darwin Kernel Version 22.6.0: Tue Jul 15 08:22:28 PDT 2025; root:xnu-8796.141.3.713.2~2/RELEASE_X86_64 x86_64
+Darwin sample-mac.example.invalid 22.6.0 Darwin Kernel Version 22.6.0: Tue Jul 15 08:22:28 PDT 2025; root:xnu-8796.141.3.713.2~2/RELEASE_X86_64 x86_64
 
 === sw_vers ===
 ProductName:		macOS
@@ -23,9 +23,9 @@ Hardware:
       OS Loader Version: 577.140.2~30
       Apple ROM Info: [MS_VM_CERT/SHA1/27d66596a61c48dd3dc7216fd715126e33f59ae7]Welcome to the Virtual Machine
       SMC Version (system): 2.8f0
-      Serial Number (system): VMp1RScwvFfR
-      Hardware UUID: 564D1C6C-BFA8-9A38-EDF6-3DC6275D6CAF
-      Provisioning UDID: 564D1C6C-BFA8-9A38-EDF6-3DC6275D6CAF
+      Serial Number (system): [REDACTED-SERIAL]
+      Hardware UUID: [REDACTED-UUID]
+      Provisioning UDID: [REDACTED-UUID]
 
 
 === system_profiler SPDisplaysDataType ===
@@ -57,9 +57,8 @@ Software:
       Kernel Version: Darwin 22.6.0
       Boot Volume: Macintosh HD
       Boot Mode: Normal
-      Computer Name: Ralph’s Mac
-      User Name: Ralph O'Flinn (ralphoflinn)
+      Computer Name: Sample Mac
+      User Name: Sample User (sampleuser)
       Secure Virtual Memory: Enabled
       System Integrity Protection: Enabled
       Time since boot: 1 hour, 29 minutes
-

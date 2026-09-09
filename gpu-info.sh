@@ -1,9 +1,6 @@
 #!/bin/bash
 set -uo pipefail
 
-OUTDIR="${1:-./gpu-report}"
-mkdir -p "$OUTDIR"
-
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
 }
@@ -11,6 +8,57 @@ log() {
 report_missing() {
   local tool="$1"
   echo "Tool not available: $tool"
+}
+
+# Capture status before filtering so errors cannot disappear into a blank section.
+# An unavailable diagnostic is report content, not a report-file write failure.
+run_diagnostic() {
+  local pattern="$1" limit="$2"
+  shift 2
+  local output="" status=0
+  if ! command -v "$1" >/dev/null 2>&1; then
+    report_missing "$1"
+    return 0
+  fi
+  output=$("$@" 2>&1) || status=$?
+  if [ "$status" -ne 0 ]; then
+    printf 'Command failed (exit=%s): %s\n' "$status" "$*"
+    printf '%s\n' "$output"
+    return 0
+  fi
+  if [ -n "$pattern" ]; then
+    output=$(printf '%s\n' "$output" | grep -iE "$pattern") || {
+      echo "No matching data reported."
+      return 0
+    }
+  fi
+  if [ -z "$output" ]; then
+    echo "No data reported."
+  elif [ "$limit" -gt 0 ]; then
+    # Consume all input to avoid SIGPIPE with pipefail, and mark truncation.
+    printf '%s\n' "$output" | awk -v limit="$limit" '
+      NR <= limit { print }
+      END { if (NR > limit) print "[Output truncated after " limit " lines.]" }
+    '
+  else
+    printf '%s\n' "$output"
+  fi
+}
+
+write_report() {
+  local filename="$1" content=""
+  shift
+  if ! content=$("$@" 2>&1); then
+    printf 'Could not collect report: %s\n' "$filename" >&2
+    write_failed=1
+    return 0
+  fi
+  if printf '%s\n' "$content" > "$OUTDIR/$filename"; then
+    generated_files+=("$filename")
+  else
+    printf 'Could not write report: %s/%s\n' "$OUTDIR" "$filename" >&2
+    write_failed=1
+  fi
 }
 
 find_glxinfo() {
@@ -71,7 +119,8 @@ run_glxinfo_probe() {
   fi
 
   echo "=== $label ==="
-  local display_arg="$(resolve_display)"
+  local display_arg=""
+  display_arg=$(resolve_display)
   if [ -n "$display_arg" ]; then
     echo "DISPLAY=$display_arg"
   fi
@@ -180,152 +229,146 @@ diagnose_glx_probe() {
   fi
 }
 
-log "Starting GPU diagnostics"
-
-{
+system_report() {
   echo "=== uname ==="
-  uname -a 2>&1 || echo "uname failed"
+  run_diagnostic "" 0 uname -a
   echo
   echo "=== sw_vers ==="
-  sw_vers 2>&1 || echo "sw_vers failed"
+  run_diagnostic "" 0 sw_vers
   echo
   echo "=== system_profiler SPHardwareDataType ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPHardwareDataType 2>&1 || echo "system_profiler SPHardwareDataType failed"
-  else
-    report_missing system_profiler
-  fi
+  run_diagnostic "" 0 system_profiler SPHardwareDataType
   echo
   echo "=== system_profiler SPDisplaysDataType ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPDisplaysDataType 2>&1 || echo "system_profiler SPDisplaysDataType failed"
-  else
-    report_missing system_profiler
-  fi
+  run_diagnostic "" 0 system_profiler SPDisplaysDataType
   echo
   echo "=== system_profiler SPSoftwareDataType ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPSoftwareDataType 2>&1 || echo "system_profiler SPSoftwareDataType failed"
-  else
-    report_missing system_profiler
-  fi
-} > "$OUTDIR/system-info.txt" 2>&1
+  run_diagnostic "" 0 system_profiler SPSoftwareDataType
+}
 
-{
-  echo "=== ioreg ==="
-  if command -v ioreg >/dev/null 2>&1; then
-    ioreg -l 2>&1 | grep -iE 'GPU|display|vga|accelerat|vendor|device-id|model' | head -200 || true
-  else
-    report_missing ioreg
-  fi
-  echo
-  echo "=== system_profiler SPHardwareDataType | grep -i 'Graphics' ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPHardwareDataType 2>&1 | grep -i 'Graphics' || true
-  else
-    report_missing system_profiler
-  fi
-} > "$OUTDIR/hardware.txt" 2>&1
-
-{
+hardware_report() {
+  local graphics_class
+  # Class matching includes subclasses. Depth 1 excludes unrelated descendants;
+  # no global line cap can discard a later GPU. Classes vary by driver/hardware.
+  for graphics_class in IOFramebuffer IODisplay IOAccelerator IOGPU; do
+    echo "=== ioreg: $graphics_class ==="
+    run_diagnostic "" 0 ioreg -r -l -d 1 -w 0 -c "$graphics_class"
+    echo
+  done
   echo "=== system_profiler SPDisplaysDataType ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPDisplaysDataType 2>&1 || echo "system_profiler SPDisplaysDataType failed"
-  else
-    report_missing system_profiler
-  fi
-  echo
-  echo "=== defaults read com.apple.windowserver.plist | grep -i 'Display' ==="
-  if command -v defaults >/dev/null 2>&1; then
-    defaults read com.apple.windowserver.plist 2>/dev/null | grep -i 'Display' || true
-  else
-    report_missing defaults
-  fi
-} > "$OUTDIR/display.txt" 2>&1
+  run_diagnostic "" 0 system_profiler SPDisplaysDataType
+}
 
-{
+display_report() {
+  echo "=== system_profiler SPDisplaysDataType ==="
+  run_diagnostic "" 0 system_profiler SPDisplaysDataType
+  echo
+  echo "=== defaults read com.apple.windowserver (Display lines) ==="
+  run_diagnostic 'Display' 0 defaults read com.apple.windowserver
+}
+
+kext_report() {
   echo "=== ls /System/Library/Extensions ==="
   if [ -d /System/Library/Extensions ]; then
-    ls /System/Library/Extensions 2>&1 | grep -iE 'Apple|Intel|AMD|NVIDIA|GeForce|Metal|IOAccelerator' | head -200 || true
+    run_diagnostic 'Apple|Intel|AMD|NVIDIA|GeForce|Metal|IOAccelerator' 200 ls /System/Library/Extensions
   else
     echo "Directory not found: /System/Library/Extensions"
   fi
   echo
   echo "=== kextstat | grep -i -E 'Apple|Intel|AMD|NVIDIA|GeForce' ==="
-  if command -v kextstat >/dev/null 2>&1; then
-    kextstat 2>&1 | grep -i -E 'Apple|Intel|AMD|NVIDIA|GeForce' || true
-  else
-    report_missing kextstat
-  fi
-} > "$OUTDIR/kexts.txt" 2>&1
+  run_diagnostic 'Apple|Intel|AMD|NVIDIA|GeForce' 0 kextstat
+}
 
-{
-  echo "=== launchctl print system/com.apple.windowserver ==="
-  if command -v launchctl >/dev/null 2>&1; then
-    launchctl print system/com.apple.windowserver 2>/dev/null | head -200 || true
-  else
-    report_missing launchctl
-  fi
+windowserver_report() {
+  echo "=== launchctl print system/com.apple.WindowServer ==="
+  run_diagnostic "" 200 launchctl print system/com.apple.WindowServer
   echo
   echo "=== ps aux | grep WindowServer ==="
-  ps aux 2>&1 | grep -i '[W]indowServer' || true
-} > "$OUTDIR/windowserver.txt" 2>&1
+  run_diagnostic '[W]indowServer' 0 ps aux
+}
 
-{
+opengl_report() {
   echo "=== macOS display/OpenGL summary ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPDisplaysDataType 2>/dev/null | grep -iE 'Chipset Model|VRAM|Metal|Resolution|Framebuffer|Displays' || true
-  else
-    report_missing system_profiler
-  fi
+  run_diagnostic 'Chipset Model|VRAM|Metal|Resolution|Framebuffer|Displays' 0 system_profiler SPDisplaysDataType
   echo
   run_glxinfo_probe "X11 OpenGL probe (-B)" -B
-} > "$OUTDIR/opengl.txt" 2>&1
+}
 
-{
+metal_report() {
   echo "=== Metal system info ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPDisplaysDataType 2>/dev/null | grep -i 'Metal' || true
-  else
-    report_missing system_profiler
-  fi
+  run_diagnostic 'Metal' 0 system_profiler SPDisplaysDataType
   echo
   echo "=== available GPUs ==="
-  if command -v system_profiler >/dev/null 2>&1; then
-    system_profiler SPDisplaysDataType 2>/dev/null | grep -i 'Chipset Model\|VRAM' || true
-  else
-    report_missing system_profiler
-  fi
-} > "$OUTDIR/metal.txt" 2>&1
+  run_diagnostic 'Chipset Model|VRAM' 0 system_profiler SPDisplaysDataType
+}
 
-{
+performance_report() {
   echo "=== hardware perf ==="
-  if command -v top >/dev/null 2>&1; then
-    top -l 1 -s 0 2>&1 | head -80 || true
-  else
-    report_missing top
-  fi
+  run_diagnostic "" 80 top -l 1 -s 0
   echo
   echo "=== vm_stat ==="
-  if command -v vm_stat >/dev/null 2>&1; then
-    vm_stat 2>&1 || echo "vm_stat failed"
-  else
-    report_missing vm_stat
-  fi
-} > "$OUTDIR/perf.txt" 2>&1
+  run_diagnostic "" 0 vm_stat
+}
 
-{
+environment_report() {
   echo "=== Network and display environment ==="
-  env 2>&1 | grep -iE 'DISPLAY|GPU|OPENGL|METAL|VMWARE|VIRTUAL' || true
-} > "$OUTDIR/env.txt" 2>&1
+  # Match names, not unrelated variables whose values contain a GPU keyword.
+  run_diagnostic '^[^=]*(DISPLAY|GPU|OPENGL|METAL|VMWARE|VIRTUAL)[^=]*=' 0 env
+}
 
-{
-  echo "Diagnostics completed."
+summary_report() {
+  if [ "$write_failed" -eq 0 ]; then
+    echo "Diagnostics completed. Probe failures, if any, are recorded in the reports."
+  else
+    echo "Diagnostics incomplete: one or more report files could not be written."
+  fi
   echo
   echo "Generated files:"
-  ls -1 "$OUTDIR" 2>/dev/null || true
-} > "$OUTDIR/summary.txt" 2>&1
+  local filename
+  # Iterating by count also works with nounset and an empty array in Bash 3.2.
+  local index
+  for ((index=0; index<${#generated_files[@]}; index++)); do
+    filename="${generated_files[index]}"
+    printf '%s\n' "$filename"
+  done
+  echo "summary.txt"
+}
 
-log "Report written to $OUTDIR"
+main() {
+  OUTDIR="${1:-./gpu-report}"
+  # Reports contain machine, user, and process details.
+  umask 077
+  case "$OUTDIR" in
+    /*|./*|../*) ;;
+    *) OUTDIR="./$OUTDIR" ;;
+  esac
+  if ! mkdir -p "$OUTDIR" || [ ! -d "$OUTDIR" ] || [ ! -w "$OUTDIR" ]; then
+    printf 'Cannot create or write report directory: %s\n' "$OUTDIR" >&2
+    return 1
+  fi
 
-echo "GPU diagnostics saved in: $OUTDIR"
+  generated_files=()
+  write_failed=0
+  log "Starting GPU diagnostics"
+  write_report system-info.txt system_report
+  write_report hardware.txt hardware_report
+  write_report display.txt display_report
+  write_report kexts.txt kext_report
+  write_report windowserver.txt windowserver_report
+  write_report opengl.txt opengl_report
+  write_report metal.txt metal_report
+  write_report perf.txt performance_report
+  write_report env.txt environment_report
+  write_report summary.txt summary_report
+
+  if [ "$write_failed" -ne 0 ]; then
+    printf 'GPU diagnostics incomplete; check errors and reports in: %s\n' "$OUTDIR" >&2
+    return 1
+  fi
+  log "Report written to $OUTDIR"
+  echo "GPU diagnostics saved in: $OUTDIR"
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

@@ -6,11 +6,11 @@ Graphics/Displays:
           Framebuffer Depth: 24-Bit Color (ARGB8888)
 
 === X11 OpenGL probe (-B) ===
-DISPLAY=/private/tmp/com.apple.launchd.yzh73yFnPv/org.xquartz:0
+DISPLAY=/private/tmp/com.apple.launchd.SAMPLE/org.xquartz:0
 OpenGL probe failed (exit=134).
 glxinfo error output:
 CGLChoosePixelFormat error: invalid pixel format
-name of display: /private/tmp/com.apple.launchd.yzh73yFnPv/org.xquartz:0
+name of display: /private/tmp/com.apple.launchd.SAMPLE/org.xquartz:0
 
 Hint: the X server is reachable, but no compatible OpenGL pixel format is available.
 Hint: this is common in virtualized GPUs or limited XQuartz/driver combinations.
