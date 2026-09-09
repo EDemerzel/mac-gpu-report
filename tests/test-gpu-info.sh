@@ -63,7 +63,7 @@ kextstat() {
 pgrep() {
   case "$3" in
     WindowServer) echo '100 WindowServer';;
-    'Xquartz|X11.bin') echo '101 Xquartz';;
+    Xquartz) echo '101 Xquartz';;
     *) return 1;;
   esac
 }
@@ -98,8 +98,11 @@ for name in system-info hardware display kexts windowserver opengl metal perf en
 done
 [ "$(wc -l < "$test_root/display-calls.txt" | tr -d ' ')" = 1 ] || fail 'collect display profile once'
 contains "$valid/report.md" '| X11 OpenGL renderer probe | FAILED |'
+contains "$valid/report.md" '| XQuartz process | OK |'
 contains "$valid/report.md" '| Metal field | NOT REPORTED |'
 contains "$valid/report.md" '[Raw output](raw/glx.txt)'
+contains "$valid/raw/xquartz.txt" 'Command: xquartz_process'
+contains "$valid/raw/xquartz.txt" '101 Xquartz'
 contains "$valid/report.md" 'Source revision:'
 contains "$valid/report.md" 'Script version:'
 contains "$valid/report.md" 'Collection started:'

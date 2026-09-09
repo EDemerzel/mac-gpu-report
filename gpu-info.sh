@@ -141,6 +141,12 @@ resolve_display() {
   printf '%s\n' "${value:-:0}"
 }
 
+xquartz_process() {
+  pgrep -l -x Xquartz && return 0
+  pgrep -l -x X11.bin && return 0
+  return 0
+}
+
 display_environment() {
   # Limit collection itself: raw evidence must not contain the entire environment.
   env | awk -F= 'toupper($1) ~ /DISPLAY|XAUTHORITY|GPU|OPENGL|METAL|VMWARE|VIRTUAL/'
@@ -161,7 +167,7 @@ collect_probes() {
   capture_probe loaded "Loaded extensions" kextstat
   capture_probe windowserver "WindowServer service" launchctl print system/com.apple.WindowServer
   capture_probe windowserver_process "WindowServer process" pgrep -l -x WindowServer
-  capture_probe xquartz "XQuartz process" pgrep -l -x 'Xquartz|X11.bin'
+  capture_probe xquartz "XQuartz process" xquartz_process
   local display_arg="" glx_bin="" xdpy_bin=""
   display_arg=$(resolve_display)
   glx_bin=$(find_x_tool glxinfo) || glx_bin=glxinfo
