@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-`gpu-info.sh` collects GPU and display diagnostics on macOS and writes a report folder with text files you can review or share for troubleshooting.
+`gpu-info.sh` collects GPU and display diagnostics on macOS. Start with the generated **`gpu-report/report.md`** in Markdown preview for an overview, diagnostic results, and links to the supporting evidence.
 
 ## Summary
 
@@ -14,7 +14,7 @@ This script gathers:
 - Kernel extension snapshots
 - WindowServer state
 - OpenGL and Metal visibility checks
-- Lightweight performance context (`top`, `vm_stat`)
+- Compact CPU/memory context (`top`, `vm_stat`)
 - Display-related environment variables (for X11/XQuartz context)
 
 It is designed for quick diagnostics on physical Macs and virtualized macOS environments.
@@ -35,6 +35,10 @@ chmod +x gpu-info.sh
 ./gpu-info.sh
 ```
 
+Open `gpu-report/report.md` in your editor's Markdown preview. It contains the system/display snapshot, items needing attention, probe results, a compact performance section, and X11/GLX interpretation. `summary.txt` provides a plain-text entry point and the final file-write result.
+
+Each report includes collection start/end timestamps with timezone offset, script version, and Git revision when available. Modified working trees are labeled. Existing report folders are not reformatted automatically: rerun the updated script on the Mac to generate the new layout.
+
 Default output directory:
 
 ```text
@@ -49,22 +53,41 @@ Use a custom output directory:
 
 An invalid or unwritable output directory, or a failed report-file write, produces a nonzero exit status. Missing tools and failed diagnostic probes are recorded in the reports and do not prevent collection of other diagnostics. Exit status 0 means the report files were written; it does not mean the GPU or every probe is healthy.
 
-Rerunning replaces the named report files. Unrelated files in the directory are preserved and excluded from the generated-file list. A failed write can leave a partial file; check the exit status and `summary.txt` before sharing. New directories/files are created with private permissions using `umask 077`; permissions on existing output paths are unchanged.
+Rerunning replaces the named report files, including evidence files in `raw/`. Unrelated files are preserved and excluded from the generated-file list. A failed write can leave a partial file; check the exit status and `summary.txt` before sharing. New directories/files are created with private permissions using `umask 077`; permissions on existing output paths are unchanged.
 
 ## Output Files
 
 The script writes the following files into the output directory:
 
-- `summary.txt`: completion message and generated file list
-- `system-info.txt`: `uname`, `sw_vers`, hardware, display, and software profile output
-- `hardware.txt`: scoped `ioreg` graphics-class queries and the full display profile
-- `display.txt`: display profile and WindowServer display defaults
-- `kexts.txt`: graphics-related extension listing and filtered `kextstat`
-- `windowserver.txt`: WindowServer launchd/process snapshot
-- `opengl.txt`: display/OpenGL summary plus optional `glxinfo -B` probe
-- `metal.txt`: Metal support lines and available GPU VRAM/model lines
-- `perf.txt`: single-sample system load/memory context (`top`, `vm_stat`)
-- `env.txt`: environment variables related to display/GPU/OpenGL/Metal/virtualization
+- `report.md`: main overview with probe results and relative links to evidence
+- `summary.txt`: final file-write result, attention items, and this run's file list
+- `system-info.txt`: selected OS, hardware, and software facts
+- `hardware.txt`: selected graphics registry properties; large dictionaries are omitted
+- `display.txt`: GPU/display facts, grouped by device, and display preferences
+- `kexts.txt`: separate installed/loaded graphics-driver views, omitting loaded-driver addresses and UUIDs
+- `windowserver.txt`: separate service-query and process-presence results
+- `opengl.txt`: X11 renderer result, supporting checks, interpretation, and next step
+- `metal.txt`: reported Metal fields, with unknown support kept explicit
+- `perf.txt`: second `top` sample, up to 10 processes ordered by CPU, and selected page counters
+- `env.txt`: display-related environment variables
+- `raw/*.txt`: full output of each command as invoked, with status, exit code, and collection metadata
+
+The display profile is collected once and reused across views. Presentation sections shorten lines beyond 96 characters and limit large lists with explicit notices; the raw evidence is not shortened. Markdown treats dynamic command output as code so embedded markup is displayed literally.
+
+The performance probe takes two samples one second apart and shows the second. [Apple documents that the first `top` sample has invalid per-process CPU percentages](https://github.com/apple-oss-distributions/top/blob/main/top.1). This is a brief CPU/memory snapshot, not a GPU benchmark. Raw `top` evidence contains both samples with the requested process/column selection; `vm_stat` retains the reported page size and units.
+
+## Understanding results
+
+| Result | Meaning |
+| --- | --- |
+| OK | A command returned data; this is not a GPU health verdict. |
+| FAILED | A command exited unsuccessfully, or the GLX probe reported an error despite exit code 0. |
+| TOOL MISSING | A command was unavailable and could not run. |
+| NOT REPORTED | The command or selected field supplied no data; this does not establish lack of hardware support. |
+| REPORTED | A Metal field is present; read its value for the actual support statement. |
+| NOT CHECKED | A derived check, such as GLX-extension visibility, could not be evaluated. |
+
+Installed drivers, loaded drivers, running processes, and successful service queries are distinct observations. The report does not infer the active GPU driver from installation alone or label a failed service query as a stopped process.
 
 ## Troubleshooting
 
@@ -73,12 +96,12 @@ The script writes the following files into the output directory:
 - `Tool not available: <name>` appears in output:
   - The script keeps running and records missing tools instead of failing.
   - On macOS, most required tools are built in. If `glxinfo` is missing, OpenGL X11 probing is skipped.
-- `OpenGL probe failed (...)` appears in `opengl.txt`:
-  - The report now includes captured `glxinfo` error text plus an `X11/GLX diagnostics` section.
-  - If you see `unable to open display`, start XQuartz and verify `DISPLAY`.
-  - If you see `CGLChoosePixelFormat error: invalid pixel format`, the X server is reachable but a compatible GL pixel format is not available (common on virtualized GPUs).
-- `Command failed`, `No matching data reported`, or `No data reported` appears:
-  - Command errors include the exit status and captured output. Successful queries with no results are identified separately.
+- `Result: FAILED` appears in `opengl.txt`:
+  - Inspect the error excerpt and `raw/glx.txt`. If exit code 0 accompanied an error, the report explains the discrepancy.
+  - Check the separate X11 connection result. A successful connection and failed renderer probe can occur together; the cause is not established by those observations alone.
+  - If the connection failed, verify `DISPLAY` and the X11 session before repeating the probe.
+- `FAILED`, `NOT REPORTED`, or `TOOL MISSING` appears:
+  - Command errors include the exit status and captured output. Empty results and unavailable tools are identified separately.
   - Permissions, session type, and virtualization can affect the available information. An absent graphics registry class or Metal line does not by itself prove that the GPU is faulty.
   - On the target Mac, verify the launchd label with `defaults read /System/Library/LaunchDaemons/com.apple.WindowServer.plist Label` if the WindowServer query reports an unknown service. Availability of the preferences domain `com.apple.windowserver` depends on the user/session.
 - Report content includes sensitive environment/process details:
@@ -86,11 +109,11 @@ The script writes the following files into the output directory:
 
 ## Example Notes for the Included Report
 
-The committed `gpu-report-sample` contains historical macOS 13.7.8 output from a VMware virtual machine. Personal host/user names and machine identifiers have been replaced with placeholders. These samples were collected before the current error reporting and scoped registry queries; blank sections and broad registry output reflect the older script, not a fresh validation run.
+The committed `gpu-report-sample` contains historical macOS 13.7.8 output from a VMware virtual machine. Personal host/user names and machine identifiers have been replaced with placeholders. These samples predate the readable overview and raw-evidence layout; they are historical diagnostic evidence, not examples of the current presentation.
 
 ## Verification
 
-Run `bash -n gpu-info.sh` and `bash tests/test-gpu-info.sh` for syntax and mocked regression checks. The tests cover output failures, partial reports, stale files, diagnostic errors/empty results, and scoped registry queries without requiring real GPU hardware. They use Bash 3.2-compatible syntax and macOS/BSD commands.
+Run `bash -n gpu-info.sh` and `bash tests/test-gpu-info.sh` for syntax and mocked regression checks. Tests cover readable widths, retained raw evidence, multiple GPUs, literal markup, second-sample CPU data, collected-once display facts, evidence links, diagnostic states, and partial/write failures. Platform probes are mocked; they do not access the host's GPU. Set `GPU_INFO_SHOW_TEST_REPORT=1` when running the tests to print a synthetic Markdown report for inspection.
 
 On macOS 13, also run `./gpu-info.sh` and inspect the reports for your hardware and session. Tests run on another OS validate shell logic only; they do not validate macOS command behavior. The `ioreg` class and subtree options follow [Apple's ioreg documentation](https://github.com/apple-oss-distributions/IOKitTools/blob/main/ioreg.tproj/ioreg.8); driver classes still vary across Intel, Apple Silicon, and VM configurations.
 
