@@ -161,7 +161,11 @@ Only exit code 1 with the exact `Domain com.apple.windowserver does not exist` r
 
 ## Example Notes for the Included Report
 
-The committed `gpu-report-sample` contains historical macOS 13.7.8 output from a VMware virtual machine. Personal host/user names and machine identifiers have been replaced with placeholders. These samples predate the readable overview and raw-evidence layout; they are historical diagnostic evidence, not examples of the current presentation.
+Start with [the sample report](gpu-report-sample/report.md). It is a sanitized copy of the real Mac run collected on September 9, 2026, at 08:33:42–08:33:45 -0500, using script version 2.2.0 (source revision `cee9c63`). The machine is a MacBook Air (`MacBookAir7,1`) with Intel HD Graphics 6000 and 8 GB RAM, running macOS 12.7.6. This records the observed machine; the project's macOS 13 compatibility baseline is unchanged.
+
+The sample mirrors the current 39-file layout: `report.md`, 19 files in `details/` (colorized HTML, plain text, and summary), and 19 raw probe files. Collection timestamps, diagnostic statuses, driver versions, and performance measurements are retained. This is a captured example, not a live health report. The previous VMware sample remains available in Git history.
+
+Each sample file is labeled as sanitized. Personal computer/user names, the system serial number, hardware UUID/provisioning UDID, display EDID/preferences keys/GUID, and the launchd display-session token have been replaced with explicit placeholders or sample names. The previous archive location is omitted; that archive is not part of the sample. Driver build UUIDs, process IDs, and diagnostic addresses/counters are retained. Apart from these redactions, sample notices, and LF line-ending normalization, the captured content is preserved; `raw/` is therefore sanitized evidence, not a byte-for-byte original. The private source `gpu-report` is not modified by the sample refresh.
 
 ## Verification
 

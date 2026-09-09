@@ -1,0 +1,126 @@
+Sample copy: identifying values are redacted where present; diagnostic results are retained.
+
+Collection started: 2026-09-09 08:33:42 -0500
+Collection ended:   2026-09-09 08:33:45 -0500
+Script version:     2.2.0
+Source revision:    cee9c63
+
+Probe: WindowServer service
+Result: OK
+Exit code: 0
+Command: launchctl print system/com.apple.WindowServer
+
+system/com.apple.WindowServer = {
+	active count = 9
+	path = /System/Library/LaunchDaemons/com.apple.WindowServer.plist
+	state = running
+
+	program = /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+	arguments = {
+		/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+		-daemon
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		MallocNanoZone => 0
+		MallocSpaceEfficient => 0
+		XPC_SERVICE_NAME => com.apple.WindowServer
+	}
+
+	domain = system
+	minimum runtime = 10
+	base minimum runtime = 10
+	exit timeout = 5
+	runs = 1
+	pid = 143
+	immediate reason = ipc (mach)
+	forks = 0
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	last exit code = (never exited)
+
+	endpoints = {
+		"com.apple.windowserver.watchdog" = {
+			port = 0x2037
+			active = 1
+			managed = 1
+			reset = 0
+			hide = 1
+			watching = 0
+		}
+		"com.apple.CARenderServer" = {
+			port = 0x14f0f
+			active = 1
+			managed = 1
+			reset = 0
+			hide = 1
+			watching = 0
+		}
+		"com.apple.CoreDisplay.Notification" = {
+			port = 0x14e03
+			active = 1
+			managed = 1
+			reset = 1
+			hide = 1
+			watching = 0
+		}
+		"com.apple.VirtualDisplay" = {
+			port = 0xb503
+			active = 1
+			managed = 1
+			reset = 0
+			hide = 1
+			watching = 0
+		}
+		"com.apple.windowserver" = {
+			port = 0xb603
+			active = 1
+			managed = 1
+			reset = 0
+			hide = 0
+			watching = 0
+		}
+		"com.apple.CoreDisplay.master" = {
+			port = 0x14d03
+			active = 1
+			managed = 1
+			reset = 0
+			hide = 1
+			watching = 0
+		}
+		"com.apple.iohideventsystem" = {
+			port = 0x1b643
+			active = 1
+			managed = 1
+			reset = 1
+			hide = 0
+			watching = 0
+		}
+		"com.apple.windowserver.active" = {
+			port = 0xb703
+			active = 1
+			managed = 1
+			reset = 0
+			hide = 1
+			watching = 0
+		}
+	}
+
+	spawn type = interactive (4)
+	jetsam priority = 17
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	job state = running
+
+	properties = inferred program | system service | exponential throttling
+}
