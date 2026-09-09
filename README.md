@@ -64,7 +64,7 @@ The script writes the following files into the output directory:
 - `system-info.txt`: selected OS, hardware, and software facts
 - `hardware.txt`: selected graphics registry properties; large dictionaries are omitted
 - `display.txt`: GPU/display facts, grouped by device, and display preferences
-- `kexts.txt`: separate installed/loaded graphics-driver views, omitting loaded-driver addresses and UUIDs
+- `kexts.txt`: loaded graphics drivers first (without addresses/UUIDs), followed by installed files grouped by name family
 - `windowserver.txt`: separate service-query and process-presence results
 - `opengl.txt`: X11 renderer result, supporting checks, interpretation, and next step
 - `metal.txt`: reported Metal fields, with unknown support kept explicit
@@ -74,7 +74,11 @@ The script writes the following files into the output directory:
 
 The display profile is collected once and reused across views. Presentation sections shorten lines beyond 96 characters and limit large lists with explicit notices; the raw evidence is not shortened. Markdown treats dynamic command output as code so embedded markup is displayed literally.
 
+Installed driver previews are grouped into Intel, AMD/ATI, NVIDIA/GeForce, Apple/AGX, VMware, and shared graphics families. Each family has its own 12-file preview and total count, so a long list from one family cannot hide another. These are filename-based groups, not proof of the active GPU driver. Full installed and loaded lists remain in `raw/installed.txt` and `raw/loaded.txt`.
+
 The performance probe takes two samples one second apart and shows the second. [Apple documents that the first `top` sample has invalid per-process CPU percentages](https://github.com/apple-oss-distributions/top/blob/main/top.1). This is a brief CPU/memory snapshot, not a GPU benchmark. Raw `top` evidence contains both samples with the requested process/column selection; `vm_stat` retains the reported page size and units.
+
+For an idle baseline, collect another report after startup and background activity have settled; retain a separate output folder when comparing runs.
 
 ## Understanding results
 
@@ -83,11 +87,16 @@ The performance probe takes two samples one second apart and shows the second. [
 | OK | A command returned data; this is not a GPU health verdict. |
 | FAILED | A command exited unsuccessfully, or the GLX probe reported an error despite exit code 0. |
 | TOOL MISSING | A command was unavailable and could not run. |
+| UNAVAILABLE | The optional display-preferences domain is absent for this user/session. The original failure, exit code, and error text remain in raw evidence. |
 | NOT REPORTED | The command or selected field supplied no data; this does not establish lack of hardware support. |
 | REPORTED | A Metal field is present; read its value for the actual support statement. |
 | NOT CHECKED | A derived check, such as GLX-extension visibility, could not be evaluated. |
 
 Installed drivers, loaded drivers, running processes, and successful service queries are distinct observations. The report does not infer the active GPU driver from installation alone or label a failed service query as a stopped process.
+
+The XQuartz process snapshot is taken after both X11/GLX probes and labeled with that timing. A local process can still be unreported while an X11 connection works; the report preserves both observations rather than inferring process presence from the connection.
+
+Only exit code 1 with the exact `Domain com.apple.windowserver does not exist` response is classified as informational `UNAVAILABLE` and omitted from Attention. Permission errors, unexpected messages, and other exit codes remain `FAILED`.
 
 ## Troubleshooting
 
@@ -114,6 +123,8 @@ The committed `gpu-report-sample` contains historical macOS 13.7.8 output from a
 ## Verification
 
 Run `bash -n gpu-info.sh` and `bash tests/test-gpu-info.sh` for syntax and mocked regression checks. Tests cover readable widths, retained raw evidence, multiple GPUs, literal markup, second-sample CPU data, collected-once display facts, evidence links, diagnostic states, and partial/write failures. Platform probes are mocked; they do not access the host's GPU. Set `GPU_INFO_SHOW_TEST_REPORT=1` when running the tests to print a synthetic Markdown report for inspection.
+
+Regression cases also cover an absent optional preferences domain versus permission errors, a process becoming visible after the X11 probe, and installed-driver lists large enough to require separate family limits.
 
 On macOS 13, also run `./gpu-info.sh` and inspect the reports for your hardware and session. Tests run on another OS validate shell logic only; they do not validate macOS command behavior. The `ioreg` class and subtree options follow [Apple's ioreg documentation](https://github.com/apple-oss-distributions/IOKitTools/blob/main/ioreg.tproj/ioreg.8); driver classes still vary across Intel, Apple Silicon, and VM configurations.
 

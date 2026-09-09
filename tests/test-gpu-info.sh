@@ -205,6 +205,112 @@ contains "$test_root/no-glx-extension/report.md" '| X11 display connection | OK 
 contains "$test_root/single/perf.txt" 'Could not identify the second top sample'
 omits "$test_root/single/perf.txt" '999.0'
 
+# The real Mac returned this exact defaults error for an optional domain.
+(
+  defaults() {
+    printf '2026-09-09 06:30:45 defaults[100:200]\nDomain com.apple.windowserver does not exist\n' >&2
+    return 1
+  }
+  main "$test_root/optional-preferences"
+) > "$test_root/optional.log" 2>&1 || fail 'absent optional preferences'
+contains "$test_root/optional-preferences/report.md" '| Display preferences | UNAVAILABLE |'
+contains "$test_root/optional-preferences/display.txt" 'Optional display preferences are absent'
+omits "$test_root/optional-preferences/display.txt" 'defaults[100:200]'
+omits "$test_root/optional-preferences/summary.txt" 'Display preferences: FAILED'
+contains "$test_root/optional-preferences/raw/preferences.txt" 'Result: FAILED'
+contains "$test_root/optional-preferences/raw/preferences.txt" 'Exit code: 1'
+contains "$test_root/optional-preferences/raw/preferences.txt" 'Domain com.apple.windowserver does not exist'
+
+for preference_error in permission wrong-domain wrong-exit; do
+  (
+    defaults() {
+      case "$preference_error" in
+        permission) echo 'Permission denied' >&2; return 1;;
+        wrong-domain) echo 'Domain com.apple.other does not exist' >&2; return 1;;
+        wrong-exit) echo 'Domain com.apple.windowserver does not exist' >&2; return 2;;
+      esac
+    }
+    main "$test_root/preferences-$preference_error"
+  ) > "$test_root/preferences-error.log" 2>&1 || fail 'preference error report'
+  contains "$test_root/preferences-$preference_error/report.md" '| Display preferences | FAILED |'
+  contains "$test_root/preferences-$preference_error/summary.txt" 'Display preferences: FAILED'
+done
+(
+  defaults() { echo 'DisplaySets = fixture'; }
+  main "$test_root/preferences-ok"
+) > "$test_root/preferences-ok.log" 2>&1 || fail 'available preferences'
+contains "$test_root/preferences-ok/report.md" '| Display preferences | OK |'
+
+# Model a local X server becoming visible only after an X11 connection probe.
+# The marker persists across command substitutions just as process state does.
+(
+  glxinfo() { echo 'OpenGL renderer string: Intel HD Graphics 6000'; }
+  xdpyinfo() {
+    touch "$test_root/x11-ready"
+    printf 'name of display: :0\n    GLX\n'
+  }
+  pgrep() {
+    case "$3" in
+      WindowServer) echo '100 WindowServer';;
+      Xquartz)
+        [ -f "$test_root/x11-ready" ] || return 1
+        echo '101 Xquartz';;
+      *) return 1;;
+    esac
+  }
+  main "$test_root/xquartz-late"
+) > "$test_root/xquartz-late.log" 2>&1 || fail 'post-probe process snapshot'
+contains "$test_root/xquartz-late/report.md" '| XQuartz process | OK |'
+contains "$test_root/xquartz-late/opengl.txt" 'Checked after the X11/GLX probes'
+contains "$test_root/xquartz-late/raw/xquartz.txt" '101 Xquartz'
+(
+  pgrep() { return 1; }
+  main "$test_root/xquartz-absent"
+) > "$test_root/xquartz-absent.log" 2>&1 || fail 'absent local process'
+contains "$test_root/xquartz-absent/report.md" '| XQuartz process | NOT REPORTED |'
+contains "$test_root/xquartz-absent/report.md" '| X11 display connection | OK |'
+
+# Large earlier families must not consume Intel's entire preview budget.
+(
+  ls() {
+    local i
+    for ((i=0; i<45; i++)); do printf 'AGXFixture%s.kext\n' "$i"; done
+    for ((i=0; i<45; i++)); do printf 'AMDController%s.kext\n' "$i"; done
+    printf 'AppleIntelBDWGraphics.kext\nAppleIntelBDWGraphicsFramebuffer.kext\n'
+    printf 'GeForceFixture.kext\nVMwareGfx.kext\nIOGraphicsFamily.kext\nAppleHDA.kext\n'
+  }
+  kextstat() {
+    echo '1 0 0xffffff 0x100 0x100 com.apple.driver.AppleIntelBDWGraphics (18.0.8) UUID <1>'
+  }
+  main "$test_root/driver-families"
+) > "$test_root/driver-families.log" 2>&1 || fail 'grouped installed drivers'
+contains "$test_root/driver-families/kexts.txt" 'Intel (2 files)'
+contains "$test_root/driver-families/kexts.txt" 'AMD / ATI (45 files)'
+contains "$test_root/driver-families/kexts.txt" 'Apple / AGX (45 files)'
+contains "$test_root/driver-families/kexts.txt" 'NVIDIA / GeForce (1 file)'
+contains "$test_root/driver-families/kexts.txt" 'VMware (1 file)'
+contains "$test_root/driver-families/kexts.txt" 'Shared graphics (1 file)'
+contains "$test_root/driver-families/kexts.txt" 'AppleIntelBDWGraphicsFramebuffer.kext'
+contains "$test_root/driver-families/kexts.txt" '[More lines omitted; see raw evidence.]'
+omits "$test_root/driver-families/kexts.txt" 'AMDController44.kext'
+omits "$test_root/driver-families/kexts.txt" 'AGXFixture44.kext'
+omits "$test_root/driver-families/kexts.txt" 'AppleHDA'
+contains "$test_root/driver-families/raw/installed.txt" 'AMDController44.kext'
+contains "$test_root/driver-families/raw/installed.txt" 'AGXFixture44.kext'
+awk '
+  /^Loaded graphics-related extensions/ { loaded=NR }
+  /^Installed graphics-related extensions/ { installed=NR }
+  length($0)>100 { exit 1 }
+  END { if (!loaded || !installed || loaded >= installed) exit 1 }
+' "$test_root/driver-families/kexts.txt" || fail 'driver ordering or width'
+(
+  kextstat() { echo 'mock loaded-driver query denied' >&2; return 1; }
+  main "$test_root/loaded-failed"
+) > "$test_root/loaded-failed.log" 2>&1 || fail 'failed loaded-driver query'
+contains "$test_root/loaded-failed/kexts.txt" 'mock loaded-driver query denied'
+contains "$test_root/loaded-failed/kexts.txt" 'Installed graphics-related extensions'
+contains "$test_root/loaded-failed/kexts.txt" 'AMDRadeonX4000.kext'
+
 # Supplemental shell write-error test; /dev/full does not exist on macOS.
 if [ -c /dev/full ]; then
   mkdir -p "$test_root/disk-full"

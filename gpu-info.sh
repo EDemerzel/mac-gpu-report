@@ -2,7 +2,7 @@
 # macOS GPU diagnostics. Bash 3.2-compatible; no third-party parser required.
 set -uo pipefail
 
-SCRIPT_VERSION="2.0.0"
+SCRIPT_VERSION="2.0.1"
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
@@ -92,9 +92,16 @@ preview() {
 
 raw_probe() {
   local i="$1"
+  local raw_state="${probe_states[i]}"
+  # UNAVAILABLE is a presentation classification of a known optional-domain
+  # failure; retain FAILED and its original exit code in the command evidence.
+  if [ "$raw_state" = UNAVAILABLE ]; then raw_state=FAILED; fi
   metadata
   printf '\nProbe: %s\nResult: %s\nExit code: %s\nCommand: %s\n\n' \
-    "${probe_titles[i]}" "${probe_states[i]}" "${probe_codes[i]}" "${probe_commands[i]}"
+    "${probe_titles[i]}" "$raw_state" "${probe_codes[i]}" "${probe_commands[i]}"
+  if [ "${probe_states[i]}" = UNAVAILABLE ]; then
+    echo "Report classification: UNAVAILABLE (optional data)"
+  fi
   if [ -n "${probe_notes[i]}" ]; then printf 'Note: %s\n\n' "${probe_notes[i]}"; fi
   printf '%s\n' "${probe_outputs[i]}"
 }
@@ -107,6 +114,7 @@ section() {
   local i="$PROBE_INDEX"
   body="${probe_outputs[i]}"
   state="${probe_states[i]}"
+  if [ "$state" = UNAVAILABLE ]; then body=""; fi
   if [ "$state" = OK ] && [ -n "$pattern" ]; then
     body=$(printf '%s\n' "$body" | grep -iE "$pattern") || body=""
     if [ -z "$body" ]; then state="NOT REPORTED"; fi
@@ -115,7 +123,7 @@ section() {
   if [ "$state" = FAILED ]; then printf 'Exit code: %s\n' "${probe_codes[i]}"; fi
   if [ -n "${probe_notes[i]}" ]; then printf '%s\n' "${probe_notes[i]}"; fi
   if [ -n "$body" ]; then printf '%s\n' "$body" | preview "$limit"
-  else echo "No matching data reported."
+  elif [ "$state" != UNAVAILABLE ]; then echo "No matching data reported."
   fi
   if was_written "raw/$id.txt"; then echo "Evidence: raw/$id.txt"
   else echo "Evidence: file could not be written."
@@ -163,11 +171,20 @@ collect_probes() {
       ioreg -r -l -d 1 -w 0 -c "$graphics_class"
   done
   capture_probe preferences "Display preferences" defaults read com.apple.windowserver
+  select_probe preferences
+  # Only the exact absent-domain response observed on the Mac is informational.
+  # Permission errors, other exit codes, and unexpected failures stay FAILED.
+  if [ "${probe_states[PROBE_INDEX]}" = FAILED ] &&
+     [ "${probe_codes[PROBE_INDEX]}" -eq 1 ] &&
+     printf '%s\n' "${probe_outputs[PROBE_INDEX]}" |
+       grep -Fx 'Domain com.apple.windowserver does not exist' >/dev/null; then
+    probe_states[PROBE_INDEX]="UNAVAILABLE"
+    probe_notes[PROBE_INDEX]="Optional display preferences are absent for this user/session."
+  fi
   capture_probe installed "Installed extensions" ls -1 /System/Library/Extensions
   capture_probe loaded "Loaded extensions" kextstat
   capture_probe windowserver "WindowServer service" launchctl print system/com.apple.WindowServer
   capture_probe windowserver_process "WindowServer process" pgrep -l -x WindowServer
-  capture_probe xquartz "XQuartz process" xquartz_process
   local display_arg="" glx_bin="" xdpy_bin=""
   display_arg=$(resolve_display)
   glx_bin=$(find_x_tool glxinfo) || glx_bin=glxinfo
@@ -182,6 +199,11 @@ collect_probes() {
     probe_notes[PROBE_INDEX]="glxinfo exited 0 but reported an error."
   fi
   capture_probe x11 "X11 display connection" "$xdpy_bin" -display "$display_arg"
+  # Take the local process snapshot after both connection probes, so it cannot
+  # describe an earlier process state than the successful X11/GLX checks.
+  capture_probe xquartz "XQuartz process" xquartz_process
+  select_probe xquartz
+  probe_notes[PROBE_INDEX]="Checked after the X11/GLX probes; this is a local process snapshot."
   # Apple's top documentation states that first-sample per-process CPU is invalid.
   capture_probe top "CPU and memory snapshot" top -l 2 -s 1 -n 10 -o cpu \
     -stats pid,command,cpu,mem
@@ -215,12 +237,7 @@ hardware_report() {
   done
 }
 
-kext_report() {
-  text_header "Graphics-related drivers"
-  echo "Installed files and loaded drivers are different observations."
-  echo "Neither list alone establishes which driver is active for a GPU."
-  echo
-  section installed 'AGX|AMD|ATI|Intel.*(Graphics|Framebuffer)|NVIDIA|GeForce|Metal|IOAccelerator|IOGraphics|AppleGraphics|GPU|VMware' 30
+loaded_graphics_report() {
   select_probe loaded
   if [ "${probe_states[PROBE_INDEX]}" != OK ]; then section loaded; return; fi
   echo "Loaded graphics-related extensions"
@@ -240,6 +257,56 @@ kext_report() {
   if was_written raw/loaded.txt; then echo "Evidence: raw/loaded.txt"; fi
 }
 
+installed_graphics_report() {
+  select_probe installed
+  if [ "${probe_states[PROBE_INDEX]}" != OK ]; then section installed; return; fi
+  local installed="${probe_outputs[PROBE_INDEX]}" family="" drivers="" count=0 total=0 unit=""
+  echo "Installed graphics-related extensions (grouped by name family)"
+  echo "Each family shows up to 12 files; full lists are in raw/installed.txt."
+  for family in Intel "AMD / ATI" "NVIDIA / GeForce" "Apple / AGX" VMware "Shared graphics"; do
+    drivers=$(printf '%s\n' "$installed" | awk -v wanted="$family" '
+      {
+        name=tolower($0); family=""
+        if (name ~ /intel.*(graphics|framebuffer)/) family="Intel"
+        else if (name ~ /amd|^ati/) family="AMD / ATI"
+        else if (name ~ /nvidia|geforce/) family="NVIDIA / GeForce"
+        else if (name ~ /vmware/) family="VMware"
+        else if (name ~ /^agx/) family="Apple / AGX"
+        else if (name ~ /metal|ioaccelerator|iographics|applegraphics|gpu/) family="Shared graphics"
+        if (family == wanted) print
+      }
+    ')
+    if [ -n "$drivers" ]; then
+      count=$(printf '%s\n' "$drivers" | awk 'END {print NR}')
+      total=$((total+count))
+      unit=files
+      if [ "$count" -eq 1 ]; then unit="file"; fi
+      printf '\n%s (%s %s)\n' "$family" "$count" "$unit"
+      printf '%s\n' "$drivers" | preview 12
+    fi
+  done
+  echo
+  if [ "$total" -gt 0 ]; then
+    printf 'Result: OK (%s matching installed files)\n' "$total"
+  else
+    echo "Result: NOT REPORTED"
+    echo "No matching installed files reported."
+  fi
+  if was_written raw/installed.txt; then echo "Evidence: raw/installed.txt"
+  else echo "Evidence: file could not be written."
+  fi
+}
+
+kext_report() {
+  text_header "Graphics-related drivers"
+  echo "Loaded drivers are shown first; installed files are grouped by name family."
+  echo "Neither list alone establishes which driver is active for a GPU."
+  echo
+  loaded_graphics_report
+  echo
+  installed_graphics_report
+}
+
 windowserver_report() {
   text_header "WindowServer"
   section windowserver_process
@@ -252,8 +319,8 @@ opengl_report() {
   section glx '' 12
   echo "Scope: X11/GLX renderer query; this is not a native Metal test."
   echo
-  section xquartz '' 4
   section x11 'name of display:|GLX' 8
+  section xquartz '' 4
   local glx_state="" x11_state=""
   select_probe glx; glx_state="${probe_states[PROBE_INDEX]}"
   select_probe x11; x11_state="${probe_states[PROBE_INDEX]}"
@@ -364,7 +431,7 @@ attention_items() {
     count=$((count+1))
   done
   if [ "$count" -eq 0 ]; then
-    echo "No command or file-write failures detected; this is not a GPU health verdict."
+    echo "No probe or file-write issues requiring attention; this is not a GPU health verdict."
   fi
 }
 
@@ -390,6 +457,8 @@ markdown_report() {
   echo "OK means the command returned data, not that the GPU passed a health test."
   echo "NOT REPORTED means a query returned no data. TOOL MISSING means it could"
   echo "not run. FAILED means a command or renderer probe reported failure."
+  echo "UNAVAILABLE means optional display preferences are absent for this session;"
+  echo "the original command failure remains in the raw evidence."
   echo
   echo "| Check | Result | Evidence |"
   echo "| --- | --- | --- |"

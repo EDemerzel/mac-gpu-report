@@ -1,19 +1,40 @@
 {
     "cSpell.words": [
         "accelerat",
+        "applegraphics",
         "Chipset",
+        "geforce",
         "getenv",
         "glxinfo",
+        "hostnames",
+        "ioaccelerator",
+        "IOFB",
         "IOGPU",
+        "iographics",
+        "iokit",
         "ioreg",
         "kext",
         "kexts",
         "kextstat",
+        "Mware",
+        "Radeon",
+        "RANDR",
         "SIGPIPE",
+        "Swapins",
+        "Swapouts",
+        "tolower",
+        "toupper",
+        "unwritable",
         "XAUTHORITY",
         "xdpy",
         "xdpyinfo",
         "xlib",
         "Xquartz"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/roflinn/.vscode-insiders/extensions/ms-security.ms-sentinel-2.0.0/python",
+        "c:\\Users\\Ralph\\.vscode-insiders\\extensions\\ms-security.ms-sentinel-2.3.1\\python",
+        "c:\\Users\\Ralph\\.vscode-insiders\\extensions\\ms-security.ms-sentinel-2.3.3\\python",
+        "c:\\Users\\Ralph\\.vscode-insiders\\extensions\\ms-security.ms-sentinel-2.3.4\\python"
     ]
 }
