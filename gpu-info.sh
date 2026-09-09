@@ -2,7 +2,7 @@
 # macOS GPU diagnostics. Bash 3.2-compatible; no third-party parser required.
 set -uo pipefail
 
-SCRIPT_VERSION="2.1.0"
+SCRIPT_VERSION="2.2.0"
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
@@ -450,26 +450,89 @@ detail_text_report() {
   "$@"
 }
 
-# Upgrade only recognized legacy outputs, without overwriting a destination or
-# touching unrelated files. A later collection replaces the relocated reports
-# just as it replaces other named outputs on every rerun.
-relocate_legacy_reports() {
-  local id source target
-  for id in system-info hardware display kexts windowserver opengl metal perf env summary; do
-    source="$OUTDIR/$id.txt" target="$OUTDIR/details/$id.txt"
-    if [ -f "$source" ] && [ ! -L "$source" ] &&
-       grep -q '^Script version:     ' "$source" &&
-       grep -q '^Collection started: ' "$source"; then
-      if [ -e "$target" ] || [ -L "$target" ]; then
-        printf 'Legacy file preserved (destination exists): %s\n' "$source" >&2
-      elif ! mv "$source" "$target"; then
-        printf 'Cannot relocate legacy report: %s\n' "$source" >&2
+# Resolve the exact directory before moving anything. Never archive a symlink,
+# a filesystem root, or a directory containing the user's home/cwd/script.
+resolve_output_directory() {
+  local parent leaf protected physical
+  while [ "$OUTDIR" != / ] && [ "${OUTDIR%/}" != "$OUTDIR" ]; do OUTDIR="${OUTDIR%/}"; done
+  leaf="${OUTDIR##*/}"
+  case "$leaf" in ''|.|..|.git|.agents|.codex)
+    printf 'Unsafe report directory: %s\n' "$OUTDIR" >&2; return 1;;
+  esac
+  case "$OUTDIR" in /*|./*|../*) ;; *) OUTDIR="./$OUTDIR";; esac
+  parent="${OUTDIR%/*}"
+  [ -n "$parent" ] || parent=/
+  if ! mkdir -p "$parent" || ! parent=$(cd -P "$parent" && pwd -P); then
+    printf 'Cannot create or write report directory: %s\n' "$OUTDIR" >&2; return 1
+  fi
+  OUTDIR="$parent/$leaf"
+  # Direct children of / and common system/container directories are not report folders.
+  case "$OUTDIR" in
+    /private|/private/var|/private/tmp|/private/etc|/Volumes/*|/Users/*)
+      case "$parent" in /|/private|/Volumes|/Users)
+        printf 'Unsafe report directory: %s\n' "$OUTDIR" >&2; return 1;;
+      esac;;
+  esac
+  if [ "$parent" = / ]; then
+    printf 'Unsafe report directory: %s\n' "$OUTDIR" >&2; return 1
+  fi
+  for protected in "$SCRIPT_DIR" "$PWD" "${HOME:-}"; do
+    [ -n "$protected" ] && [ -d "$protected" ] || continue
+    physical=$(cd -P "$protected" && pwd -P) || return 1
+    # File identity also handles case aliases on typical macOS filesystems.
+    while [ "$physical" != / ]; do
+      if [ "$OUTDIR" -ef "$physical" ]; then
+        printf 'Unsafe report directory (contains home, working directory, or script): %s\n' "$OUTDIR" >&2
         return 1
-      else
-        printf 'Relocated legacy report: %s -> details/%s.txt\n' "$source" "$id"
       fi
-    fi
+      physical="${physical%/*}"
+      [ -n "$physical" ] || physical=/
+    done
   done
+  if [ -L "$OUTDIR" ] || { [ -e "$OUTDIR" ] && [ ! -d "$OUTDIR" ]; }; then
+    printf 'Cannot create or write report directory: %s (not a real directory)\n' "$OUTDIR" >&2
+    return 1
+  fi
+}
+
+# Hold this lock for the entire collection, not just the rename. main runs in a
+# subshell, so its exit/signal traps do not replace a caller's traps.
+prepare_output_directory() {
+  local archive_root stamp
+  OUTPUT_LOCK="$OUTDIR.lock"
+  if ! mkdir "$OUTPUT_LOCK"; then
+    printf 'Cannot acquire report lock: %s (another run or a stale lock; no reports moved)\n' "$OUTPUT_LOCK" >&2
+    return 1
+  fi
+  trap 'rmdir "$OUTPUT_LOCK" || printf "Could not remove report lock: %s\n" "$OUTPUT_LOCK" >&2' EXIT
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  # Recheck after locking, before any move.
+  if [ -L "$OUTDIR" ] || { [ -e "$OUTDIR" ] && [ ! -d "$OUTDIR" ]; }; then
+    printf 'Report directory changed during startup; stopping: %s\n' "$OUTDIR" >&2; return 1
+  fi
+  if [ -d "$OUTDIR" ]; then
+    stamp=$(date -u '+%Y%m%dT%H%M%SZ') || return 1
+    # An exclusively created private container prevents timestamp collisions
+    # and ensures mv cannot overwrite or nest inside an existing destination.
+    archive_root=$(mktemp -d "$OUTDIR.archive-$stamp.XXXXXX") || {
+      printf 'Cannot create report archive; previous reports unchanged: %s\n' "$OUTDIR" >&2
+      return 1
+    }
+    ARCHIVED_REPORT="$archive_root/${OUTDIR##*/}"
+    if ! mv "$OUTDIR" "$ARCHIVED_REPORT"; then
+      printf 'Cannot archive report directory; stopping before collection: %s\n' "$OUTDIR" >&2
+      rmdir "$archive_root" 2>/dev/null || true
+      return 1
+    fi
+    printf 'Previous reports archived at: %s\n' "$ARCHIVED_REPORT"
+  fi
+  # No -p for the output root: refuse a directory that appeared concurrently.
+  if ! mkdir "$OUTDIR" || ! mkdir "$OUTDIR/raw" "$OUTDIR/details"; then
+    printf 'Cannot create fresh report directory: %s\n' "$OUTDIR" >&2
+    return 1
+  fi
 }
 
 # Self-contained HTML: escape every captured line before adding trusted markup.
@@ -603,6 +666,7 @@ markdown_report() {
 
 summary_report() {
   text_header "GPU diagnostics summary"
+  if [ -n "${ARCHIVED_REPORT:-}" ]; then printf 'Previous reports archived at: %s\n\n' "$ARCHIVED_REPORT"; fi
   if [ "$write_failed" -eq 0 ]; then
     echo "Diagnostics completed. Report files were written."
   else
@@ -619,23 +683,19 @@ summary_report() {
   echo "  details/summary.txt"
 }
 
-main() {
+main() (
   local EVIDENCE_PREFIX=raw
-  OUTDIR="${1:-./gpu-report}"
+  OUTDIR="${1-./gpu-report}"
+  ARCHIVED_REPORT=""
   umask 077
   # Stable English labels for parsing; no change to the parent shell environment.
   export LC_ALL=C
-  case "$OUTDIR" in /*|./*|../*) ;; *) OUTDIR="./$OUTDIR" ;; esac
-  if ! mkdir -p "$OUTDIR/raw" "$OUTDIR/details" || [ ! -w "$OUTDIR" ] ||
-     [ ! -w "$OUTDIR/raw" ] || [ ! -w "$OUTDIR/details" ]; then
-    printf 'Cannot create or write report directory: %s\n' "$OUTDIR" >&2
-    return 1
-  fi
+  resolve_output_directory || return 1
+  prepare_output_directory || return 1
   generated_files=() failed_files=()
   probe_ids=() probe_titles=() probe_states=() probe_codes=()
   probe_commands=() probe_outputs=() probe_notes=()
   write_failed=0
-  relocate_legacy_reports || return 1
   started_at=$(date '+%Y-%m-%d %H:%M:%S %z')
   source_revision="unavailable (source archive or Git not installed)"
   if command -v git >/dev/null 2>&1; then
@@ -683,6 +743,6 @@ main() {
   fi
   echo "GPU diagnostics saved in: $OUTDIR"
   echo "Start here: $OUTDIR/report.md"
-}
+)
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then main "$@"; fi

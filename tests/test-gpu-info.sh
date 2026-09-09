@@ -13,7 +13,13 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 contains() { grep -F -q "$2" "$1" || fail "$1 should contain: $2"; }
 omits() { if grep -F -q "$2" "$1"; then fail "$1 should omit: $2"; fi; }
 
-sw_vers() { printf 'ProductName: macOS\nProductVersion: 13.7.8\n'; }
+sw_vers() {
+  # Inject write failures after startup has created a clean output folder.
+  if [ -n "${BLOCK_REPORT:-}" ]; then mkdir -p "$OUTDIR/$BLOCK_REPORT"; fi
+  if [ -n "${BLOCK_RAW:-}" ]; then mkdir -p "$OUTDIR/$BLOCK_RAW"; fi
+  if [ "${DISK_FULL:-0}" = 1 ]; then ln -s /dev/full "$OUTDIR/report.md"; fi
+  printf 'ProductName: macOS\nProductVersion: 13.7.8\n'
+}
 system_profiler() {
   if [ "${PROFILER_FAIL:-0}" = 1 ]; then echo 'mock profiler permission denied' >&2; return 7; fi
   case "$1" in
@@ -91,7 +97,11 @@ contains "$test_root/valid.log" 'Start here:'
 contains "$valid/details/summary.txt" 'Diagnostics completed.'
 contains "$valid/details/summary.txt" 'Start here: ../report.md'
 omits "$valid/details/summary.txt" 'stale.txt'
-[ -f "$valid/stale.txt" ] || fail 'preserve unrelated files'
+[ ! -e "$valid/stale.txt" ] || fail 'stale file mixed into new run'
+initial_archive=$(sed -n 's/^Previous reports archived at: //p' "$test_root/valid.log")
+[ -f "$initial_archive/stale.txt" ] || fail 'preserve unrelated files in archive'
+contains "$valid/details/summary.txt" "$initial_archive"
+[ ! -e "$valid.lock" ] || fail 'release successful-run lock'
 for name in system-info hardware display kexts windowserver opengl metal perf env summary; do
   [ -s "$valid/details/$name.txt" ] || fail "missing $name"
   [ ! -e "$valid/$name.txt" ] || fail "detail left in output root: $name"
@@ -161,8 +171,7 @@ contains "$test_root/invalid.log" 'Cannot create or write report directory:'
 omits "$test_root/invalid.log" 'GPU diagnostics saved in:'
 
 partial="$test_root/partial"
-mkdir -p "$partial/details/hardware.txt" "$partial/raw/glx.txt"
-if (main "$partial") > "$test_root/partial.log" 2>&1; then fail 'partial writes must fail'; fi
+if (BLOCK_REPORT=details/hardware.txt; BLOCK_RAW=raw/glx.txt; main "$partial") > "$test_root/partial.log" 2>&1; then fail 'partial writes must fail'; fi
 contains "$partial/details/summary.txt" 'Diagnostics incomplete:'
 omits "$test_root/partial.log" 'GPU diagnostics saved in:'
 contains "$partial/report.md" '| X11 OpenGL renderer probe | 🔴 FAILED | Not written |'
@@ -172,15 +181,15 @@ contains "$partial/report.md" 'hardware: file not written during this run.'
 
 for blocked in details/summary.txt report.md details/display.html; do
   blocked_dir="$test_root/blocked-${blocked##*/}"
-  mkdir -p "$blocked_dir/$blocked"
-  if (main "$blocked_dir") > "$test_root/blocked.log" 2>&1; then fail "$blocked failure must fail"; fi
+  if (BLOCK_REPORT="$blocked"; main "$blocked_dir") > "$test_root/blocked.log" 2>&1; then fail "$blocked failure must fail"; fi
   omits "$test_root/blocked.log" 'GPU diagnostics saved in:'
+  [ ! -e "$blocked_dir.lock" ] || fail 'release failed-run lock'
 done
 contains "$blocked_dir/details/summary.txt" 'File write failed: details/display.html'
 omits "$blocked_dir/report.md" '(details/display.html)'
 contains "$blocked_dir/report.md" '(details/display.txt)'
 
-# Recognized legacy reports move on upgrade; unrelated files and collisions stay.
+# Archive the complete old layout without interpreting or changing its contents.
 legacy="$test_root/legacy"
 mkdir -p "$legacy/details"
 printf 'Script version:     2.0.1\nCollection started: old run\n' > "$legacy/display.txt"
@@ -188,11 +197,122 @@ cp "$legacy/display.txt" "$legacy/metal.txt"
 echo 'existing destination' > "$legacy/details/metal.txt"
 echo 'user notes' > "$legacy/hardware.txt"
 (main "$legacy") > "$test_root/legacy.log" 2>&1 || fail 'legacy upgrade'
-[ ! -e "$legacy/display.txt" ] || fail 'legacy detail not relocated'
-contains "$legacy/details/display.txt" 'Script version:     2.1.0'
-contains "$legacy/hardware.txt" 'user notes'
-contains "$legacy/metal.txt" '2.0.1'
-contains "$test_root/legacy.log" 'Legacy file preserved (destination exists)'
+[ ! -e "$legacy/display.txt" ] || fail 'legacy detail mixed into current run'
+contains "$legacy/details/display.txt" 'Script version:     2.2.0'
+legacy_archive=$(sed -n 's/^Previous reports archived at: //p' "$test_root/legacy.log")
+contains "$legacy_archive/hardware.txt" 'user notes'
+contains "$legacy_archive/metal.txt" '2.0.1'
+contains "$legacy_archive/details/metal.txt" 'existing destination'
+
+# Repeated runs with identical timestamps get distinct archives. Old links and
+# bytes are preserved, and hidden/unrelated files leave the active directory.
+cp "$valid/report.md" "$test_root/old-report.md"
+touch "$valid/.hidden-note"
+ln -s "$test_root/old-report.md" "$valid/external-link"
+for run in 1 2; do
+  (
+    date() {
+      if [ "$*" = '-u +%Y%m%dT%H%M%SZ' ]; then echo 20260909T120000Z
+      else command date "$@"; fi
+    }
+    main "$valid/"
+  ) > "$test_root/repeat-$run.log" 2>&1 || fail 'repeat run'
+done
+first_archive=$(sed -n 's/^Previous reports archived at: //p' "$test_root/repeat-1.log")
+second_archive=$(sed -n 's/^Previous reports archived at: //p' "$test_root/repeat-2.log")
+[ "$first_archive" != "$second_archive" ] || fail 'archive name collision'
+case "$first_archive" in "$valid.archive-20260909T120000Z."*/"${valid##*/}") ;; *) fail 'archive naming';; esac
+cmp "$test_root/old-report.md" "$first_archive/report.md" || fail 'archive changed report bytes'
+[ -f "$first_archive/.hidden-note" ] || fail 'hidden file lost'
+[ -L "$first_archive/external-link" ] || fail 'archive followed internal symlink'
+[ ! -e "$valid/.hidden-note" ] || fail 'hidden file mixed into fresh run'
+[ ! -e "$valid/external-link" ] || fail 'old symlink in fresh run'
+[ -s "$second_archive/report.md" ] || fail 'second archive missing'
+[ -f "$first_archive/raw/glx.txt" ] || fail 'archived evidence missing'
+
+# Archive/startup failure must stop before probing and leave recoverable data.
+for failure in archive-create archive-move fresh-create; do
+  failing_dir="$test_root/$failure"
+  mkdir -p "$failing_dir"
+  echo 'previous evidence' > "$failing_dir/keep.txt"
+  (
+    collect_probes() { touch "$test_root/unexpected-probe-$failure"; return 1; }
+    case "$failure" in
+      archive-create) mktemp() { return 1; };;
+      archive-move) mv() { return 1; };;
+      fresh-create)
+        mkdir() {
+          if [ "$*" = "$failing_dir" ]; then return 1; fi
+          command mkdir "$@"
+        };;
+    esac
+    main "$failing_dir"
+  ) > "$test_root/$failure.log" 2>&1 && fail 'startup failure should stop'
+  [ ! -e "$test_root/unexpected-probe-$failure" ] || fail 'probed after startup failure'
+  [ ! -e "$failing_dir.lock" ] || fail 'startup failure leaked lock'
+  if [ "$failure" = fresh-create ]; then
+    saved=$(sed -n 's/^Previous reports archived at: //p' "$test_root/$failure.log")
+    contains "$saved/keep.txt" 'previous evidence'
+    [ ! -e "$failing_dir" ] || fail 'failed fresh creation should not restore stale run'
+  else
+    contains "$failing_dir/keep.txt" 'previous evidence'
+  fi
+done
+
+# Existing locks stop another run before archiving, and are not removed by it.
+mkdir -p "$test_root/locked" "$test_root/locked.lock"
+echo 'active run' > "$test_root/locked/keep.txt"
+if (main "$test_root/locked") > "$test_root/locked.log" 2>&1; then fail 'lock must block second run'; fi
+contains "$test_root/locked/keep.txt" 'active run'
+[ -d "$test_root/locked.lock" ] || fail 'removed another run lock'
+contains "$test_root/locked.log" 'Cannot acquire report lock:'
+
+# The lock remains held during collection, including through parent-path aliases.
+ln -s "$test_root" "$test_root/parent-alias"
+(
+  sw_vers() {
+    if main "$test_root/parent-alias/live" > "$test_root/contender.log" 2>&1; then
+      touch "$test_root/contender-succeeded"
+    fi
+    printf 'ProductName: macOS\nProductVersion: 13.7.8\n'
+  }
+  main "$test_root/live"
+) > "$test_root/live.log" 2>&1 || fail 'active collector'
+[ ! -e "$test_root/contender-succeeded" ] || fail 'concurrent run accepted'
+contains "$test_root/contender.log" 'Cannot acquire report lock:'
+[ -s "$test_root/live/report.md" ] || fail 'contender disrupted active report'
+[ ! -e "$test_root/live.lock" ] || fail 'active collector leaked lock'
+
+# A failed follow-up run must not expose the previous run HTML as current.
+(main "$test_root/isolation") > "$test_root/isolation-first.log" 2>&1 || fail 'isolation first run'
+if (BLOCK_REPORT=details/hardware.txt; main "$test_root/isolation") > "$test_root/isolation-next.log" 2>&1; then
+  fail 'isolation write failure'
+fi
+saved=$(sed -n 's/^Previous reports archived at: //p' "$test_root/isolation-next.log")
+[ -s "$saved/details/hardware.html" ] || fail 'previous HTML not archived'
+[ ! -e "$test_root/isolation/details/hardware.html" ] || fail 'stale HTML visible in failed run'
+omits "$test_root/isolation/report.md" '(details/hardware.html)'
+contains "$test_root/isolation/details/summary.txt" 'Diagnostics incomplete:'
+
+# Reject dangerous paths without starting probes or moving directories.
+for unsafe in '' / . .. "$script_dir" "$script_dir/.." "$script_dir/.git" "$PWD" "${HOME:-/}"; do
+  if (main "$unsafe") > "$test_root/unsafe.log" 2>&1; then fail "unsafe output accepted: $unsafe"; fi
+  omits "$test_root/unsafe.log" 'Collecting GPU diagnostics'
+done
+mkdir -p "$test_root/symlink-target"
+echo 'untouched' > "$test_root/symlink-target/keep.txt"
+ln -s "$test_root/symlink-target" "$test_root/symlink-output"
+ln -s "$test_root/nonexistent" "$test_root/dangling-output"
+for link in symlink-output dangling-output; do
+  if (main "$test_root/$link/") > "$test_root/symlink.log" 2>&1; then fail 'symlink output accepted'; fi
+  [ -L "$test_root/$link" ] || fail 'symlink output changed'
+done
+contains "$test_root/symlink-target/keep.txt" 'untouched'
+
+# Custom nested and leading-dash names still work; first runs need no archive.
+(cd "$test_root" && main '-custom/nested/output') > "$test_root/custom.log" 2>&1 || fail 'custom nested output'
+[ -s "$test_root/-custom/nested/output/report.md" ] || fail 'custom report absent'
+omits "$test_root/custom.log" 'Previous reports archived at:'
 
 (PROFILER_FAIL=1; main "$test_root/probe-failure") > "$test_root/probe.log" 2>&1 || fail 'probe failure should write reports'
 contains "$test_root/probe-failure/report.md" '| Metal field | 🔴 FAILED |'
@@ -359,10 +479,8 @@ contains "$test_root/loaded-failed/details/kexts.txt" 'AMDRadeonX4000.kext'
 
 # Supplemental shell write-error test; /dev/full does not exist on macOS.
 if [ -c /dev/full ]; then
-  mkdir -p "$test_root/disk-full"
-  ln -s /dev/full "$test_root/disk-full/report.md"
-  if (main "$test_root/disk-full") > "$test_root/full.log" 2>&1; then fail 'disk full must fail'; fi
+  if (DISK_FULL=1; main "$test_root/disk-full") > "$test_root/full.log" 2>&1; then fail 'disk full must fail'; fi
   contains "$test_root/disk-full/details/summary.txt" 'Diagnostics incomplete:'
 fi
 if [ "${GPU_INFO_SHOW_TEST_REPORT:-0}" = 1 ]; then command cat "$valid/report.md"; fi
-echo 'PASS: readable reports, raw evidence, statuses, snapshots, links, and failure handling'
+echo 'PASS: readable reports, archival isolation, path safety, locks, evidence, and failure handling'

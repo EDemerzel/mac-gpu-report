@@ -53,7 +53,27 @@ Use a custom output directory:
 
 An invalid or unwritable output directory, or a failed report-file write, produces a nonzero exit status. Missing tools and failed diagnostic probes are recorded in the reports and do not prevent collection of other diagnostics. Exit status 0 means the report files were written; it does not mean the GPU or every probe is healthy.
 
-Rerunning replaces the named report files, including evidence files in `raw/`. On upgrade, known top-level text reports containing collection/version metadata are moved into `details/` before collection, then replaced by the new run. If a destination already exists, the old top-level file is preserved with a warning; review it manually. Unrelated files and top-level symlinks are not moved. A failed write can leave a partial file; check the exit status and `details/summary.txt` before sharing. New directories/files are created with private permissions using `umask 077`; permissions on existing output paths are unchanged.
+### Fresh runs and archives
+
+Every run starts with a fresh output folder. Before collecting diagnostics, the script moves the **entire existing output directory** into a uniquely named, timestamped sibling archive. This includes old layouts, hidden files, unrelated notes, and any incomplete prior run; nothing is merged into the new report. Symlinks inside the old directory are preserved as links, not followed during archiving.
+
+For example, a rerun produces:
+
+```text
+gpu-report/                                      # new run only
+gpu-report.archive-20260909T120000Z.aB3xY7/
+  gpu-report/                                    # complete previous folder
+```
+
+The timestamp is UTC and marks when the archive was created, not when the old data was collected. The random suffix prevents collisions, including runs started within the same second. Keeping the previous folder intact preserves its internal relative report links. The archive location is printed in the terminal and recorded in the new `details/summary.txt` when that file can be written. A first run with no existing output folder needs no archive; an existing empty folder is archived too.
+
+If archiving fails, the script exits nonzero **before collection**. If creation of the fresh folder fails after archiving, the previous reports remain at the printed archive location. Failed or interrupted collection may leave a partial *new* report, but never intentionally restores or mixes in the previous run. Check the exit status, timestamps, and `details/summary.txt` before sharing; an early interruption may prevent that summary from being created.
+
+Use a dedicated report directory, including for custom output paths: every file inside it will move into the archive on rerun. The script rejects output symlinks, files, root/system-container paths, and directories containing your home, working directory, or the script. Run from outside the output folder. New output and archive-container directories use private permissions (`umask 077`); permissions of archived contents are preserved.
+
+A sibling `gpu-report.lock/` directory prevents overlapping runs against the same resolved output path. It is removed on normal exit and handled termination signals. After a forced termination or power loss, a stale lock may remain: confirm no collection is running, then remove **only the empty lock directory**, for example with `rmdir ./gpu-report.lock`, before rerunning. The script never automatically breaks an existing lock.
+
+Archives are retained indefinitely; review and remove old archives manually when no longer needed. They may contain sensitive data and consume disk space. The default `gpu-report.archive-*/` directories and lock are Git-ignored alongside the active report; custom output paths and their archives are not covered. To view an old run, open its archived `gpu-report/report.md` in Markdown preview.
 
 ## Output Files
 
@@ -149,7 +169,7 @@ Run `bash -n gpu-info.sh` and `bash tests/test-gpu-info.sh` for syntax and mocke
 
 Regression cases also cover an absent optional preferences domain versus permission errors, a process becoming visible after the X11 probe, and installed-driver lists large enough to require separate family limits.
 
-Presentation tests also cover the `details/` layout, legacy-file relocation and collision preservation, colored status labels, HTML escaping, relative navigation/evidence links, and failed HTML writes with plain-text fallback.
+Presentation tests also cover the `details/` layout, colored status labels, HTML escaping, relative navigation/evidence links, and failed HTML writes with plain-text fallback. Lifecycle tests cover whole-folder archival, unchanged old report bytes and hidden files, unique archive names with identical timestamps, custom output paths, startup failures, output-path safety, and lock handling. These tests use temporary fixtures; they do not archive the real `gpu-report` directory.
 
 On macOS 13, also run `./gpu-info.sh` and inspect the reports for your hardware and session. Tests run on another OS validate shell logic only; they do not validate macOS command behavior. The `ioreg` class and subtree options follow [Apple's ioreg documentation](https://github.com/apple-oss-distributions/IOKitTools/blob/main/ioreg.tproj/ioreg.8); driver classes still vary across Intel, Apple Silicon, and VM configurations.
 
