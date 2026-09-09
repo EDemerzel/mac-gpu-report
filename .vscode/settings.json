@@ -1,0 +1,22 @@
+{
+    "cSpell.words": [
+        "accelerat",
+        "Chipset",
+        "getenv",
+        "glxinfo",
+        "ioreg",
+        "kexts",
+        "kextstat",
+        "XAUTHORITY",
+        "xdpy",
+        "xdpyinfo",
+        "xlib",
+        "Xquartz"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/roflinn/.vscode-insiders/extensions/ms-security.ms-sentinel-2.0.0/python",
+        "c:\\Users\\Ralph\\.vscode-insiders\\extensions\\ms-security.ms-sentinel-2.3.1\\python",
+        "c:\\Users\\Ralph\\.vscode-insiders\\extensions\\ms-security.ms-sentinel-2.3.3\\python",
+        "c:\\Users\\Ralph\\.vscode-insiders\\extensions\\ms-security.ms-sentinel-2.3.4\\python"
+    ]
+}
