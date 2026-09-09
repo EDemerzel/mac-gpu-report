@@ -35,9 +35,9 @@ chmod +x gpu-info.sh
 ./gpu-info.sh
 ```
 
-Open `gpu-report/report.md` in your editor's Markdown preview. It contains the system/display snapshot, items needing attention, probe results, a compact performance section, and X11/GLX interpretation. `summary.txt` provides a plain-text entry point and the final file-write result.
+Open `gpu-report/report.md` in your editor's Markdown preview. It contains the system/display snapshot, items needing attention, color-coded probe results, a compact performance section, and X11/GLX interpretation. Follow the detail links to HTML reports, or use their plain-text copies. `details/summary.txt` records the final file-write result.
 
-Each report includes collection start/end timestamps with timezone offset, script version, and Git revision when available. Modified working trees are labeled. Existing report folders are not reformatted automatically: rerun the updated script on the Mac to generate the new layout.
+Each report includes collection start/end timestamps with timezone offset, script version, and Git revision when available. Modified working trees are labeled. Rerun the updated script on the Mac to generate the new layout; updating this repository does not rewrite captured evidence.
 
 Default output directory:
 
@@ -53,26 +53,49 @@ Use a custom output directory:
 
 An invalid or unwritable output directory, or a failed report-file write, produces a nonzero exit status. Missing tools and failed diagnostic probes are recorded in the reports and do not prevent collection of other diagnostics. Exit status 0 means the report files were written; it does not mean the GPU or every probe is healthy.
 
-Rerunning replaces the named report files, including evidence files in `raw/`. Unrelated files are preserved and excluded from the generated-file list. A failed write can leave a partial file; check the exit status and `summary.txt` before sharing. New directories/files are created with private permissions using `umask 077`; permissions on existing output paths are unchanged.
+Rerunning replaces the named report files, including evidence files in `raw/`. On upgrade, known top-level text reports containing collection/version metadata are moved into `details/` before collection, then replaced by the new run. If a destination already exists, the old top-level file is preserved with a warning; review it manually. Unrelated files and top-level symlinks are not moved. A failed write can leave a partial file; check the exit status and `details/summary.txt` before sharing. New directories/files are created with private permissions using `umask 077`; permissions on existing output paths are unchanged.
 
 ## Output Files
 
-The script writes the following files into the output directory:
+New output directories have one top-level entry point:
+
+```text
+gpu-report/
+  report.md
+  details/
+    summary.txt
+    display.html
+    display.txt
+    ...other detail reports (.html and .txt)
+  raw/
+    displays.txt
+    ...full probe evidence (.txt)
+```
+
+The script writes the following files into the output directory. Each detail report below has both a styled `.html` version and a `.txt` copy (except the final summary):
 
 - `report.md`: main overview with probe results and relative links to evidence
-- `summary.txt`: final file-write result, attention items, and this run's file list
-- `system-info.txt`: selected OS, hardware, and software facts
-- `hardware.txt`: selected graphics registry properties; large dictionaries are omitted
-- `display.txt`: GPU/display facts, grouped by device, and display preferences
-- `kexts.txt`: loaded graphics drivers first (without addresses/UUIDs), followed by installed files grouped by name family
-- `windowserver.txt`: separate service-query and process-presence results
-- `opengl.txt`: X11 renderer result, supporting checks, interpretation, and next step
-- `metal.txt`: reported Metal fields, with unknown support kept explicit
-- `perf.txt`: second `top` sample, up to 10 processes ordered by CPU, and selected page counters
-- `env.txt`: display-related environment variables
+- `details/summary.txt`: final file-write result, attention items, and this run's file list
+- `details/system-info.html`: selected OS, hardware, and software facts
+- `details/hardware.html`: selected graphics registry properties; large dictionaries are omitted
+- `details/display.html`: GPU/display facts, grouped by device, and display preferences
+- `details/kexts.html`: loaded graphics drivers first (without addresses/UUIDs), followed by installed files grouped by name family
+- `details/windowserver.html`: separate service-query and process-presence results
+- `details/opengl.html`: X11 renderer result, supporting checks, interpretation, and next step
+- `details/metal.html`: reported Metal fields, with unknown support kept explicit
+- `details/perf.html`: second `top` sample, up to 10 processes ordered by CPU, and selected page counters
+- `details/env.html`: display-related environment variables
 - `raw/*.txt`: full output of each command as invoked, with status, exit code, and collection metadata
 
 The display profile is collected once and reused across views. Presentation sections shorten lines beyond 96 characters and limit large lists with explicit notices; the raw evidence is not shortened. Markdown treats dynamic command output as code so embedded markup is displayed literally.
+
+### Colors and viewing
+
+Markdown uses colored status symbols beside the result labels: 🟢 OK, 🔴 FAILED, 🟡 TOOL MISSING, 🔵 REPORTED/UNAVAILABLE, and ⚪ NOT REPORTED. Emoji appearance depends on the viewer; Markdown does not rely on custom CSS. Snapshot code blocks and plain-text/raw files remain uncolored, with no ANSI escape codes.
+
+For full-color detail results, open an HTML report in a browser, for example `open gpu-report/details/display.html` on the Mac. Pages have light/dark themes, wrapping text, printable styling, labeled status badges, and links to evidence, plain text, and the Markdown overview. Browsers generally show the overview as Markdown source; use your editor's Markdown preview for that file. Some editor previews open HTML links as source too; use the browser command when needed.
+
+HTML is self-contained, works offline, and escapes captured output so device names and diagnostic messages cannot inject markup. No JavaScript or remote assets are used. Color is supplemental, not a health verdict: a successful command returning data does not establish GPU health. Share the complete output folder to preserve relative links, and check the final summary for incomplete writes first.
 
 Installed driver previews are grouped into Intel, AMD/ATI, NVIDIA/GeForce, Apple/AGX, VMware, and shared graphics families. Each family has its own 12-file preview and total count, so a long list from one family cannot hide another. These are filename-based groups, not proof of the active GPU driver. Full installed and loaded lists remain in `raw/installed.txt` and `raw/loaded.txt`.
 
@@ -125,6 +148,8 @@ The committed `gpu-report-sample` contains historical macOS 13.7.8 output from a
 Run `bash -n gpu-info.sh` and `bash tests/test-gpu-info.sh` for syntax and mocked regression checks. Tests cover readable widths, retained raw evidence, multiple GPUs, literal markup, second-sample CPU data, collected-once display facts, evidence links, diagnostic states, and partial/write failures. Platform probes are mocked; they do not access the host's GPU. Set `GPU_INFO_SHOW_TEST_REPORT=1` when running the tests to print a synthetic Markdown report for inspection.
 
 Regression cases also cover an absent optional preferences domain versus permission errors, a process becoming visible after the X11 probe, and installed-driver lists large enough to require separate family limits.
+
+Presentation tests also cover the `details/` layout, legacy-file relocation and collision preservation, colored status labels, HTML escaping, relative navigation/evidence links, and failed HTML writes with plain-text fallback.
 
 On macOS 13, also run `./gpu-info.sh` and inspect the reports for your hardware and session. Tests run on another OS validate shell logic only; they do not validate macOS command behavior. The `ioreg` class and subtree options follow [Apple's ioreg documentation](https://github.com/apple-oss-distributions/IOKitTools/blob/main/ioreg.tproj/ioreg.8); driver classes still vary across Intel, Apple Silicon, and VM configurations.
 

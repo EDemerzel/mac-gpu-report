@@ -2,7 +2,7 @@
 # macOS GPU diagnostics. Bash 3.2-compatible; no third-party parser required.
 set -uo pipefail
 
-SCRIPT_VERSION="2.0.1"
+SCRIPT_VERSION="2.1.0"
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 log() { printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; }
@@ -125,7 +125,7 @@ section() {
   if [ -n "$body" ]; then printf '%s\n' "$body" | preview "$limit"
   elif [ "$state" != UNAVAILABLE ]; then echo "No matching data reported."
   fi
-  if was_written "raw/$id.txt"; then echo "Evidence: raw/$id.txt"
+  if was_written "raw/$id.txt"; then echo "Evidence: ${EVIDENCE_PREFIX:-raw}/$id.txt"
   else echo "Evidence: file could not be written."
   fi
   echo
@@ -254,7 +254,7 @@ loaded_graphics_report() {
     echo "Result: NOT REPORTED"
     echo "No matching driver names reported."
   fi
-  if was_written raw/loaded.txt; then echo "Evidence: raw/loaded.txt"; fi
+  if was_written raw/loaded.txt; then echo "Evidence: ${EVIDENCE_PREFIX:-raw}/loaded.txt"; fi
 }
 
 installed_graphics_report() {
@@ -262,7 +262,7 @@ installed_graphics_report() {
   if [ "${probe_states[PROBE_INDEX]}" != OK ]; then section installed; return; fi
   local installed="${probe_outputs[PROBE_INDEX]}" family="" drivers="" count=0 total=0 unit=""
   echo "Installed graphics-related extensions (grouped by name family)"
-  echo "Each family shows up to 12 files; full lists are in raw/installed.txt."
+  echo "Each family shows up to 12 files; full lists are in ${EVIDENCE_PREFIX:-raw}/installed.txt."
   for family in Intel "AMD / ATI" "NVIDIA / GeForce" "Apple / AGX" VMware "Shared graphics"; do
     drivers=$(printf '%s\n' "$installed" | awk -v wanted="$family" '
       {
@@ -292,7 +292,7 @@ installed_graphics_report() {
     echo "Result: NOT REPORTED"
     echo "No matching installed files reported."
   fi
-  if was_written raw/installed.txt; then echo "Evidence: raw/installed.txt"
+  if was_written raw/installed.txt; then echo "Evidence: ${EVIDENCE_PREFIX:-raw}/installed.txt"
   else echo "Evidence: file could not be written."
   fi
 }
@@ -395,9 +395,9 @@ performance_report() {
       ' | preview 20
     else
       echo "Result: NOT REPORTED"
-      echo "Could not identify the second top sample; inspect raw/top.txt."
+      echo "Could not identify the second top sample; inspect ${EVIDENCE_PREFIX:-raw}/top.txt."
     fi
-    if was_written raw/top.txt; then echo "Evidence: raw/top.txt"; fi
+    if was_written raw/top.txt; then echo "Evidence: ${EVIDENCE_PREFIX:-raw}/top.txt"; fi
     echo
   else
     section top
@@ -435,6 +435,105 @@ attention_items() {
   fi
 }
 
+status_symbol() {
+  case "$1" in
+    OK) printf '🟢';;
+    FAILED) printf '🔴';;
+    "TOOL MISSING") printf '🟡';;
+    UNAVAILABLE|REPORTED|PRESENT) printf '🔵';;
+    *) printf '⚪';;
+  esac
+}
+
+detail_text_report() {
+  local EVIDENCE_PREFIX=../raw
+  "$@"
+}
+
+# Upgrade only recognized legacy outputs, without overwriting a destination or
+# touching unrelated files. A later collection replaces the relocated reports
+# just as it replaces other named outputs on every rerun.
+relocate_legacy_reports() {
+  local id source target
+  for id in system-info hardware display kexts windowserver opengl metal perf env summary; do
+    source="$OUTDIR/$id.txt" target="$OUTDIR/details/$id.txt"
+    if [ -f "$source" ] && [ ! -L "$source" ] &&
+       grep -q '^Script version:     ' "$source" &&
+       grep -q '^Collection started: ' "$source"; then
+      if [ -e "$target" ] || [ -L "$target" ]; then
+        printf 'Legacy file preserved (destination exists): %s\n' "$source" >&2
+      elif ! mv "$source" "$target"; then
+        printf 'Cannot relocate legacy report: %s\n' "$source" >&2
+        return 1
+      else
+        printf 'Relocated legacy report: %s -> details/%s.txt\n' "$source" "$id"
+      fi
+    fi
+  done
+}
+
+# Self-contained HTML: escape every captured line before adding trusted markup.
+# No JavaScript, remote assets, or untrusted values in HTML attributes.
+html_detail_report() {
+  local id="$1" title="$2" evidence_paths="" i
+  for ((i=0; i<${#probe_ids[@]}; i++)); do
+    if was_written "raw/${probe_ids[i]}.txt"; then
+      evidence_paths="$evidence_paths ../raw/${probe_ids[i]}.txt"
+    fi
+  done
+  printf '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">\n'
+  printf '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+  printf '<title>%s — GPU diagnostics</title>\n' "$title"
+  printf '%s\n' '<style>
+:root { color-scheme: light dark; --bg:#f5f7fb; --panel:#fff; --fg:#172033; --border:#c4ccda; --link:#174ea6; --ok:#17652d; --fail:#a11724; --warn:#795000; --info:#174ea6; --muted:#50596a; }
+@media (prefers-color-scheme:dark) { :root { --bg:#141922; --panel:#1e2633; --fg:#edf1f7; --border:#56647a; --link:#9fc5ff; --ok:#8bdfa1; --fail:#ff9ca5; --warn:#f6d074; --info:#9fc5ff; --muted:#bdc6d5; } }
+* { box-sizing:border-box; } body { margin:0 auto; max-width:76rem; padding:1.5rem; background:var(--bg); color:var(--fg); font:1rem/1.6 system-ui,sans-serif; }
+a { color:var(--link); text-underline-offset:.2em; } a:focus-visible { outline:3px solid var(--link); outline-offset:4px; }
+nav { display:flex; flex-wrap:wrap; gap:1rem; } h1 { line-height:1.2; } pre { background:var(--panel); border:1px solid var(--border); border-radius:.6rem; padding:1rem; white-space:pre-wrap; overflow-wrap:anywhere; font: .9rem/1.65 ui-monospace,Menlo,Consolas,monospace; }
+.badge { font-weight:700; border:1px solid currentColor; border-radius:.3rem; padding:.1em .35em; } .ok { color:var(--ok); } .failed { color:var(--fail); } .warning { color:var(--warn); } .info { color:var(--info); } .neutral { color:var(--muted); }
+@media print { :root { color-scheme:light; --bg:white; --panel:white; --fg:black; --border:#777; --link:#174ea6; --ok:#17652d; --fail:#a11724; --warn:#795000; --info:#174ea6; --muted:#50596a; } body { padding:0; } pre { border:0; } }
+</style></head><body><nav aria-label="Report navigation">'
+  if was_written "details/$id.txt"; then
+    printf '<a href="%s.txt">Plain-text copy</a>\n' "$id"
+  fi
+  echo '<a href="../report.md">Main overview (Markdown)</a>'
+  echo '</nav>'
+  printf '<h1>%s</h1>\n' "$title"
+  echo '<p>View the main overview in Markdown preview. Status colors supplement the labels; OK means data was returned, not a GPU health verdict.</p>'
+  echo '<pre>'
+  awk -v evidence_paths="$evidence_paths" '
+    BEGIN {
+      n=split(evidence_paths, paths, " ")
+      for (j=1; j<=n; j++) evidence[paths[j]]=1
+    }
+    function escape(s, out, i, c) {
+      out=""
+      for (i=1; i<=length(s); i++) {
+        c=substr(s,i,1)
+        if (c == "&") out=out "&amp;"
+        else if (c == "<") out=out "&lt;"
+        else if (c == ">") out=out "&gt;"
+        else if (c == "\"") out=out "&quot;"
+        else out=out c
+      }
+      return out
+    }
+    {
+      line=escape($0); class=""
+      if ($0 ~ /^Result: OK([ (]|$)/) class="ok"
+      else if ($0 ~ /^Result: FAILED$/) class="failed"
+      else if ($0 ~ /^Result: TOOL MISSING$/) class="warning"
+      else if ($0 ~ /^Result: (UNAVAILABLE|REPORTED)$/ || $0 == "GLX extension: PRESENT") class="info"
+      else if ($0 ~ /^Result: NOT REPORTED$/ || $0 ~ /^GLX extension: NOT (REPORTED|CHECKED)/) class="neutral"
+      if (class != "") print "<span class=\"badge " class "\">" line "</span>"
+      else if ($0 ~ /^Evidence: \.\.\/raw\/[A-Za-z0-9_-]+\.txt$/ && (substr($0,11) in evidence)) {
+        path=substr($0,11); print "Evidence: <a href=\"" path "\">" escape(path) "</a>"
+      } else print line
+    }
+  ' "$OUTDIR/details/$id.txt" || return 1
+  echo '</pre><p>Preview text may be shortened; evidence links contain the full captured output. Reports are not anonymized. Review before sharing.</p></body></html>'
+}
+
 # Dynamic text is rendered as indented code, never executable HTML or Markdown.
 markdown_report() {
   echo "# GPU diagnostic report"
@@ -442,7 +541,8 @@ markdown_report() {
   metadata | sed 's/^/    /'
   echo
   echo "Collection results and report-file writes are separate. Check the final"
-  echo "summary.txt and the script exit status for report-generation success."
+  echo "details/summary.txt and the script exit status for report-generation success."
+  echo "Colored symbols are viewer-dependent; the result labels remain authoritative."
   echo
   echo "## Attention"
   echo
@@ -465,12 +565,12 @@ markdown_report() {
   local i id
   for ((i=0; i<${#probe_ids[@]}; i++)); do
     id="${probe_ids[i]}"
-    printf '| %s | %s | ' "${probe_titles[i]}" "${probe_states[i]}"
+    printf '| %s | %s %s | ' "${probe_titles[i]}" "$(status_symbol "${probe_states[i]}")" "${probe_states[i]}"
     if was_written "raw/$id.txt"; then printf '[Raw output](raw/%s.txt) |\n' "$id"
     else echo "Not written |"
     fi
   done
-  printf '| Metal field | %s | ' "$(metal_state)"
+  printf '| Metal field | %s %s | ' "$(status_symbol "$(metal_state)")" "$(metal_state)"
   if was_written raw/displays.txt; then echo '[Display output](raw/displays.txt) |'
   else echo 'Not written |'
   fi
@@ -485,9 +585,14 @@ markdown_report() {
   echo
   echo "## Detailed reports"
   echo
+  echo "Open HTML files in a browser for full color, automatic light/dark theme, and clickable evidence links."
+  echo
   for id in system-info hardware display kexts windowserver opengl metal perf env; do
-    if was_written "$id.txt"; then printf -- '- [%s](%s.txt)\n' "$id" "$id"
-    else printf -- '- %s: file not written during this run.\n' "$id"
+    if was_written "details/$id.html"; then printf -- '- [%s (color)](details/%s.html)' "$id" "$id"
+    else printf -- '- %s: HTML file not written during this run.' "$id"
+    fi
+    if was_written "details/$id.txt"; then printf ' — [plain text](details/%s.txt)\n' "$id"
+    else printf ' — %s: file not written during this run.\n' "$id"
     fi
   done
   echo
@@ -503,24 +608,26 @@ summary_report() {
   else
     echo "Diagnostics incomplete: one or more report files could not be written."
   fi
-  if was_written report.md; then echo "Start here: report.md (open in Markdown preview)."; fi
+  if was_written report.md; then echo "Start here: ../report.md (open in Markdown preview)."; fi
   echo
   echo "Attention:"
   attention_items
   echo
-  echo "Generated files (this run only):"
+  echo "Generated files (this run only; paths relative to output directory):"
   local i
   for ((i=0; i<${#generated_files[@]}; i++)); do printf '  %s\n' "${generated_files[i]}"; done
-  echo "  summary.txt"
+  echo "  details/summary.txt"
 }
 
 main() {
+  local EVIDENCE_PREFIX=raw
   OUTDIR="${1:-./gpu-report}"
   umask 077
   # Stable English labels for parsing; no change to the parent shell environment.
   export LC_ALL=C
   case "$OUTDIR" in /*|./*|../*) ;; *) OUTDIR="./$OUTDIR" ;; esac
-  if ! mkdir -p "$OUTDIR/raw" || [ ! -w "$OUTDIR" ] || [ ! -w "$OUTDIR/raw" ]; then
+  if ! mkdir -p "$OUTDIR/raw" "$OUTDIR/details" || [ ! -w "$OUTDIR" ] ||
+     [ ! -w "$OUTDIR/raw" ] || [ ! -w "$OUTDIR/details" ]; then
     printf 'Cannot create or write report directory: %s\n' "$OUTDIR" >&2
     return 1
   fi
@@ -528,6 +635,7 @@ main() {
   probe_ids=() probe_titles=() probe_states=() probe_codes=()
   probe_commands=() probe_outputs=() probe_notes=()
   write_failed=0
+  relocate_legacy_reports || return 1
   started_at=$(date '+%Y-%m-%d %H:%M:%S %z')
   source_revision="unavailable (source archive or Git not installed)"
   if command -v git >/dev/null 2>&1; then
@@ -545,17 +653,30 @@ main() {
   for ((i=0; i<${#probe_ids[@]}; i++)); do
     write_report "raw/${probe_ids[i]}.txt" raw_probe "$i"
   done
-  write_report system-info.txt system_report
-  write_report hardware.txt hardware_report
-  write_report display.txt display_report
-  write_report kexts.txt kext_report
-  write_report windowserver.txt windowserver_report
-  write_report opengl.txt opengl_report
-  write_report metal.txt metal_report
-  write_report perf.txt performance_report
-  write_report env.txt environment_report
+  write_report details/system-info.txt detail_text_report system_report
+  write_report details/hardware.txt detail_text_report hardware_report
+  write_report details/display.txt detail_text_report display_report
+  write_report details/kexts.txt detail_text_report kext_report
+  write_report details/windowserver.txt detail_text_report windowserver_report
+  write_report details/opengl.txt detail_text_report opengl_report
+  write_report details/metal.txt detail_text_report metal_report
+  write_report details/perf.txt detail_text_report performance_report
+  write_report details/env.txt detail_text_report environment_report
+  local id title
+  for id in system-info hardware display kexts windowserver opengl metal perf env; do
+    case "$id" in
+      system-info) title="System overview";; hardware) title="Graphics registry";;
+      display) title="GPU and displays";; kexts) title="Graphics drivers";;
+      windowserver) title="WindowServer";; opengl) title="X11 / GLX";;
+      metal) title="Metal visibility";; perf) title="Performance snapshot";;
+      env) title="Display environment";;
+    esac
+    if was_written "details/$id.txt"; then
+      write_report "details/$id.html" html_detail_report "$id" "$title"
+    fi
+  done
   write_report report.md markdown_report
-  write_report summary.txt summary_report
+  write_report details/summary.txt summary_report
   if [ "$write_failed" -ne 0 ]; then
     printf 'GPU diagnostics incomplete; check errors and reports in: %s\n' "$OUTDIR" >&2
     return 1

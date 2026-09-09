@@ -88,18 +88,35 @@ mkdir -p "$valid"
 touch "$valid/stale.txt"
 (main "$valid") > "$test_root/valid.log" 2>&1 || fail 'valid run'
 contains "$test_root/valid.log" 'Start here:'
-contains "$valid/summary.txt" 'Diagnostics completed.'
-contains "$valid/summary.txt" 'Start here: report.md'
-omits "$valid/summary.txt" 'stale.txt'
+contains "$valid/details/summary.txt" 'Diagnostics completed.'
+contains "$valid/details/summary.txt" 'Start here: ../report.md'
+omits "$valid/details/summary.txt" 'stale.txt'
 [ -f "$valid/stale.txt" ] || fail 'preserve unrelated files'
 for name in system-info hardware display kexts windowserver opengl metal perf env summary; do
-  [ -s "$valid/$name.txt" ] || fail "missing $name"
-  contains "$valid/summary.txt" "$name.txt"
+  [ -s "$valid/details/$name.txt" ] || fail "missing $name"
+  [ ! -e "$valid/$name.txt" ] || fail "detail left in output root: $name"
+  contains "$valid/details/summary.txt" "$name.txt"
 done
+for name in system-info hardware display kexts windowserver opengl metal perf env; do
+  [ -s "$valid/details/$name.html" ] || fail "missing HTML: $name"
+  contains "$valid/report.md" "(details/$name.html)"
+  contains "$valid/details/$name.html" '<meta charset="utf-8">'
+  contains "$valid/details/$name.html" 'prefers-color-scheme:dark'
+  contains "$valid/details/$name.html" "href=\"$name.txt\""
+  contains "$valid/details/$name.html" 'href="../report.md"'
+  # Every generated HTML link resolves relative to details/.
+  while IFS= read -r link; do
+    [ -f "$valid/details/$link" ] || fail "broken HTML link: $link"
+  done < <(sed -n 's/.*href="\([^"]*\)".*/\1/p' "$valid/details/$name.html")
+done
+contains "$valid/details/opengl.html" '<span class="badge failed">Result: FAILED</span>'
+contains "$valid/details/opengl.html" '<span class="badge ok">Result: OK</span>'
+contains "$valid/details/opengl.html" 'href="../raw/glx.txt"'
+contains "$valid/details/opengl.txt" 'Evidence: ../raw/glx.txt'
 [ "$(wc -l < "$test_root/display-calls.txt" | tr -d ' ')" = 1 ] || fail 'collect display profile once'
-contains "$valid/report.md" '| X11 OpenGL renderer probe | FAILED |'
-contains "$valid/report.md" '| XQuartz process | OK |'
-contains "$valid/report.md" '| Metal field | NOT REPORTED |'
+contains "$valid/report.md" '| X11 OpenGL renderer probe | 🔴 FAILED |'
+contains "$valid/report.md" '| XQuartz process | 🟢 OK |'
+contains "$valid/report.md" '| Metal field | ⚪ NOT REPORTED |'
 contains "$valid/report.md" '[Raw output](raw/glx.txt)'
 contains "$valid/raw/xquartz.txt" 'Command: xquartz_process'
 contains "$valid/raw/xquartz.txt" '101 Xquartz'
@@ -108,32 +125,32 @@ contains "$valid/report.md" 'Script version:'
 contains "$valid/report.md" 'Collection started:'
 contains "$valid/report.md" 'Collection ended:'
 contains "$valid/raw/glx.txt" 'Exit code: 0'
-contains "$valid/opengl.txt" 'glxinfo exited 0 but reported an error.'
-contains "$valid/opengl.txt" 'The X11 connection succeeded, but the renderer probe failed.'
-omits "$valid/opengl.txt" 'Likely cause:'
+contains "$valid/details/opengl.txt" 'glxinfo exited 0 but reported an error.'
+contains "$valid/details/opengl.txt" 'The X11 connection succeeded, but the renderer probe failed.'
+omits "$valid/details/opengl.txt" 'Likely cause:'
 contains "$valid/raw/IOFramebuffer.txt" 'last GPU preserved'
 contains "$valid/raw/IOFramebuffer.txt" '"IOKitDiagnostics"'
-omits "$valid/hardware.txt" '"IOKitDiagnostics"'
-contains "$valid/hardware.txt" '[More lines omitted; see raw evidence.]'
-contains "$valid/display.txt" 'Result: FAILED'
-contains "$valid/display.txt" 'mock preferences domain unavailable'
-contains "$valid/metal.txt" 'missing Metal field does not prove'
-contains "$valid/perf.txt" '100 WindowServer 5.3 140M'
-contains "$valid/perf.txt" '101 Code - Insiders 1.2 200M'
-omits "$valid/perf.txt" 'Invalid First Sample'
+omits "$valid/details/hardware.txt" '"IOKitDiagnostics"'
+contains "$valid/details/hardware.txt" '[More lines omitted; see raw evidence.]'
+contains "$valid/details/display.txt" 'Result: FAILED'
+contains "$valid/details/display.txt" 'mock preferences domain unavailable'
+contains "$valid/details/metal.txt" 'missing Metal field does not prove'
+contains "$valid/details/perf.txt" '100 WindowServer 5.3 140M'
+contains "$valid/details/perf.txt" '101 Code - Insiders 1.2 200M'
+omits "$valid/details/perf.txt" 'Invalid First Sample'
 contains "$valid/raw/top.txt" 'Invalid First Sample'
-contains "$valid/kexts.txt" 'com.apple.iokit.IOGraphicsFamily (1.2.3)'
-omits "$valid/kexts.txt" 'UUID-SECRET'
-omits "$valid/kexts.txt" 'AppleHDA'
+contains "$valid/details/kexts.txt" 'com.apple.iokit.IOGraphicsFamily (1.2.3)'
+omits "$valid/details/kexts.txt" 'UUID-SECRET'
+omits "$valid/details/kexts.txt" 'AppleHDA'
 omits "$valid/raw/environment.txt" 'UNRELATED_SECRET'
-omits "$valid/env.txt" 'UNRELATED_SECRET'
+omits "$valid/details/env.txt" 'UNRELATED_SECRET'
 for name in hardware perf opengl kexts; do
-  awk 'length($0)>100 {exit 1}' "$valid/$name.txt" || fail "$name exceeds readable width"
+  awk 'length($0)>100 {exit 1}' "$valid/details/$name.txt" || fail "$name exceeds readable width"
 done
 [ -z "$(find "$valid/raw" -perm -004 -print)" ] || fail 'raw files world readable'
 
 # Every relative evidence/report link must reference a file written this run.
-links=$(sed -n 's/.*](\([^)]*\.txt\)).*/\1/p' "$valid/report.md")
+links=$(grep -oE '\]\([^)]*\.(txt|html)\)' "$valid/report.md" | sed 's/^](//; s/)$//')
 while IFS= read -r link; do
   [ -f "$valid/$link" ] || fail "broken link: $link"
 done <<< "$links"
@@ -144,66 +161,95 @@ contains "$test_root/invalid.log" 'Cannot create or write report directory:'
 omits "$test_root/invalid.log" 'GPU diagnostics saved in:'
 
 partial="$test_root/partial"
-mkdir -p "$partial/hardware.txt" "$partial/raw/glx.txt"
+mkdir -p "$partial/details/hardware.txt" "$partial/raw/glx.txt"
 if (main "$partial") > "$test_root/partial.log" 2>&1; then fail 'partial writes must fail'; fi
-contains "$partial/summary.txt" 'Diagnostics incomplete:'
+contains "$partial/details/summary.txt" 'Diagnostics incomplete:'
 omits "$test_root/partial.log" 'GPU diagnostics saved in:'
-contains "$partial/report.md" '| X11 OpenGL renderer probe | FAILED | Not written |'
+contains "$partial/report.md" '| X11 OpenGL renderer probe | 🔴 FAILED | Not written |'
 omits "$partial/report.md" '[Raw output](raw/glx.txt)'
+omits "$partial/details/opengl.html" 'href="../raw/glx.txt"'
 contains "$partial/report.md" 'hardware: file not written during this run.'
 
-for blocked in summary.txt report.md; do
-  mkdir -p "$test_root/blocked-$blocked/$blocked"
-  if (main "$test_root/blocked-$blocked") > "$test_root/blocked.log" 2>&1; then fail "$blocked failure must fail"; fi
+for blocked in details/summary.txt report.md details/display.html; do
+  blocked_dir="$test_root/blocked-${blocked##*/}"
+  mkdir -p "$blocked_dir/$blocked"
+  if (main "$blocked_dir") > "$test_root/blocked.log" 2>&1; then fail "$blocked failure must fail"; fi
   omits "$test_root/blocked.log" 'GPU diagnostics saved in:'
 done
+contains "$blocked_dir/details/summary.txt" 'File write failed: details/display.html'
+omits "$blocked_dir/report.md" '(details/display.html)'
+contains "$blocked_dir/report.md" '(details/display.txt)'
+
+# Recognized legacy reports move on upgrade; unrelated files and collisions stay.
+legacy="$test_root/legacy"
+mkdir -p "$legacy/details"
+printf 'Script version:     2.0.1\nCollection started: old run\n' > "$legacy/display.txt"
+cp "$legacy/display.txt" "$legacy/metal.txt"
+echo 'existing destination' > "$legacy/details/metal.txt"
+echo 'user notes' > "$legacy/hardware.txt"
+(main "$legacy") > "$test_root/legacy.log" 2>&1 || fail 'legacy upgrade'
+[ ! -e "$legacy/display.txt" ] || fail 'legacy detail not relocated'
+contains "$legacy/details/display.txt" 'Script version:     2.1.0'
+contains "$legacy/hardware.txt" 'user notes'
+contains "$legacy/metal.txt" '2.0.1'
+contains "$test_root/legacy.log" 'Legacy file preserved (destination exists)'
 
 (PROFILER_FAIL=1; main "$test_root/probe-failure") > "$test_root/probe.log" 2>&1 || fail 'probe failure should write reports'
-contains "$test_root/probe-failure/report.md" '| Metal field | FAILED |'
+contains "$test_root/probe-failure/report.md" '| Metal field | 🔴 FAILED |'
 contains "$test_root/probe-failure/raw/displays.txt" 'mock profiler permission denied'
-omits "$test_root/probe-failure/metal.txt" 'Result: NOT REPORTED'
+omits "$test_root/probe-failure/details/metal.txt" 'Result: NOT REPORTED'
 
 (MULTI_GPU=1; main "$test_root/multi") > "$test_root/multi.log" 2>&1 || fail 'multi GPU'
 contains "$test_root/multi/report.md" 'Chipset Model: Test GPU'
 contains "$test_root/multi/report.md" 'Chipset Model: GPU two | error board'
-contains "$test_root/multi/report.md" '| GPU and displays | OK |'
-contains "$test_root/multi/report.md" '| Metal field | REPORTED |'
+contains "$test_root/multi/report.md" '| GPU and displays | 🟢 OK |'
+contains "$test_root/multi/report.md" '| Metal field | 🔵 REPORTED |'
 # Dynamic HTML appears only inside indented code, never an executable HTML block.
 if grep '<script>' "$test_root/multi/report.md" | grep -v '^    ' >/dev/null; then fail 'unsafe Markdown'; fi
+contains "$test_root/multi/details/display.html" '&lt;script&gt;alert(1)&lt;/script&gt;'
+omits "$test_root/multi/details/display.html" '<script>'
+(
+  env() { printf 'DISPLAY=</pre><img src=x onerror="alert(1)">&payload\nEvidence: ../raw/fakeGPU.txt\n'; }
+  main "$test_root/html-escape"
+) > "$test_root/html-escape.log" 2>&1 || fail 'HTML escaping'
+contains "$test_root/html-escape/details/env.html" '&lt;/pre&gt;&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&amp;payload'
+omits "$test_root/html-escape/details/env.html" '<img'
+contains "$test_root/html-escape/details/env.html" 'Evidence: ../raw/fakeGPU.txt'
+omits "$test_root/html-escape/details/env.html" 'href="../raw/fakeGPU.txt"'
 
 (
   find_x_tool() { echo gpu_info_missing_test_tool; }
   main "$test_root/missing"
 ) > "$test_root/missing.log" 2>&1 || fail 'missing optional tools'
-contains "$test_root/missing/report.md" '| X11 OpenGL renderer probe | TOOL MISSING |'
-contains "$test_root/missing/opengl.txt" 'GLX extension: NOT CHECKED'
+contains "$test_root/missing/report.md" '| X11 OpenGL renderer probe | 🟡 TOOL MISSING |'
+contains "$test_root/missing/details/opengl.txt" 'GLX extension: NOT CHECKED'
 
 (
   glxinfo() { echo 'OpenGL renderer string: Test Renderer'; }
   main "$test_root/glx-ok"
 ) > "$test_root/glx-ok.log" 2>&1 || fail 'successful GLX'
-contains "$test_root/glx-ok/report.md" '| X11 OpenGL renderer probe | OK |'
-omits "$test_root/glx-ok/opengl.txt" 'Next step:'
+contains "$test_root/glx-ok/report.md" '| X11 OpenGL renderer probe | 🟢 OK |'
+omits "$test_root/glx-ok/details/opengl.txt" 'Next step:'
 
 (
   glxinfo() { echo 'mock renderer failure' >&2; return 42; }
   xdpyinfo() { echo 'mock display connection failed' >&2; return 1; }
   main "$test_root/x11-failed"
 ) > "$test_root/x11-failed.log" 2>&1 || fail 'failed connection should still write reports'
-contains "$test_root/x11-failed/opengl.txt" 'Exit code: 42'
-contains "$test_root/x11-failed/opengl.txt" 'GLX extension: NOT CHECKED'
-contains "$test_root/x11-failed/opengl.txt" 'a working X11 connection was not confirmed'
+contains "$test_root/x11-failed/details/opengl.txt" 'Exit code: 42'
+contains "$test_root/x11-failed/details/opengl.txt" 'GLX extension: NOT CHECKED'
+contains "$test_root/x11-failed/details/opengl.txt" 'a working X11 connection was not confirmed'
 
 (
   xdpyinfo() { printf 'name of display: :0\n    RANDR\n'; }
   main "$test_root/no-glx-extension"
 ) > "$test_root/no-glx-extension.log" 2>&1 || fail 'missing GLX extension'
-contains "$test_root/no-glx-extension/opengl.txt" 'GLX extension: NOT REPORTED'
-contains "$test_root/no-glx-extension/report.md" '| X11 display connection | OK |'
+contains "$test_root/no-glx-extension/details/opengl.txt" 'GLX extension: NOT REPORTED'
+contains "$test_root/no-glx-extension/report.md" '| X11 display connection | 🟢 OK |'
 
 (TOP_SINGLE=1; main "$test_root/single") > "$test_root/single.log" 2>&1 || fail 'single top sample'
-contains "$test_root/single/perf.txt" 'Could not identify the second top sample'
-omits "$test_root/single/perf.txt" '999.0'
+contains "$test_root/single/details/perf.txt" 'Could not identify the second top sample'
+omits "$test_root/single/details/perf.txt" '999.0'
 
 # The real Mac returned this exact defaults error for an optional domain.
 (
@@ -213,10 +259,10 @@ omits "$test_root/single/perf.txt" '999.0'
   }
   main "$test_root/optional-preferences"
 ) > "$test_root/optional.log" 2>&1 || fail 'absent optional preferences'
-contains "$test_root/optional-preferences/report.md" '| Display preferences | UNAVAILABLE |'
-contains "$test_root/optional-preferences/display.txt" 'Optional display preferences are absent'
-omits "$test_root/optional-preferences/display.txt" 'defaults[100:200]'
-omits "$test_root/optional-preferences/summary.txt" 'Display preferences: FAILED'
+contains "$test_root/optional-preferences/report.md" '| Display preferences | 🔵 UNAVAILABLE |'
+contains "$test_root/optional-preferences/details/display.txt" 'Optional display preferences are absent'
+omits "$test_root/optional-preferences/details/display.txt" 'defaults[100:200]'
+omits "$test_root/optional-preferences/details/summary.txt" 'Display preferences: FAILED'
 contains "$test_root/optional-preferences/raw/preferences.txt" 'Result: FAILED'
 contains "$test_root/optional-preferences/raw/preferences.txt" 'Exit code: 1'
 contains "$test_root/optional-preferences/raw/preferences.txt" 'Domain com.apple.windowserver does not exist'
@@ -232,14 +278,14 @@ for preference_error in permission wrong-domain wrong-exit; do
     }
     main "$test_root/preferences-$preference_error"
   ) > "$test_root/preferences-error.log" 2>&1 || fail 'preference error report'
-  contains "$test_root/preferences-$preference_error/report.md" '| Display preferences | FAILED |'
-  contains "$test_root/preferences-$preference_error/summary.txt" 'Display preferences: FAILED'
+  contains "$test_root/preferences-$preference_error/report.md" '| Display preferences | 🔴 FAILED |'
+  contains "$test_root/preferences-$preference_error/details/summary.txt" 'Display preferences: FAILED'
 done
 (
   defaults() { echo 'DisplaySets = fixture'; }
   main "$test_root/preferences-ok"
 ) > "$test_root/preferences-ok.log" 2>&1 || fail 'available preferences'
-contains "$test_root/preferences-ok/report.md" '| Display preferences | OK |'
+contains "$test_root/preferences-ok/report.md" '| Display preferences | 🟢 OK |'
 
 # Model a local X server becoming visible only after an X11 connection probe.
 # The marker persists across command substitutions just as process state does.
@@ -260,15 +306,15 @@ contains "$test_root/preferences-ok/report.md" '| Display preferences | OK |'
   }
   main "$test_root/xquartz-late"
 ) > "$test_root/xquartz-late.log" 2>&1 || fail 'post-probe process snapshot'
-contains "$test_root/xquartz-late/report.md" '| XQuartz process | OK |'
-contains "$test_root/xquartz-late/opengl.txt" 'Checked after the X11/GLX probes'
+contains "$test_root/xquartz-late/report.md" '| XQuartz process | 🟢 OK |'
+contains "$test_root/xquartz-late/details/opengl.txt" 'Checked after the X11/GLX probes'
 contains "$test_root/xquartz-late/raw/xquartz.txt" '101 Xquartz'
 (
   pgrep() { return 1; }
   main "$test_root/xquartz-absent"
 ) > "$test_root/xquartz-absent.log" 2>&1 || fail 'absent local process'
-contains "$test_root/xquartz-absent/report.md" '| XQuartz process | NOT REPORTED |'
-contains "$test_root/xquartz-absent/report.md" '| X11 display connection | OK |'
+contains "$test_root/xquartz-absent/report.md" '| XQuartz process | ⚪ NOT REPORTED |'
+contains "$test_root/xquartz-absent/report.md" '| X11 display connection | 🟢 OK |'
 
 # Large earlier families must not consume Intel's entire preview budget.
 (
@@ -284,17 +330,17 @@ contains "$test_root/xquartz-absent/report.md" '| X11 display connection | OK |'
   }
   main "$test_root/driver-families"
 ) > "$test_root/driver-families.log" 2>&1 || fail 'grouped installed drivers'
-contains "$test_root/driver-families/kexts.txt" 'Intel (2 files)'
-contains "$test_root/driver-families/kexts.txt" 'AMD / ATI (45 files)'
-contains "$test_root/driver-families/kexts.txt" 'Apple / AGX (45 files)'
-contains "$test_root/driver-families/kexts.txt" 'NVIDIA / GeForce (1 file)'
-contains "$test_root/driver-families/kexts.txt" 'VMware (1 file)'
-contains "$test_root/driver-families/kexts.txt" 'Shared graphics (1 file)'
-contains "$test_root/driver-families/kexts.txt" 'AppleIntelBDWGraphicsFramebuffer.kext'
-contains "$test_root/driver-families/kexts.txt" '[More lines omitted; see raw evidence.]'
-omits "$test_root/driver-families/kexts.txt" 'AMDController44.kext'
-omits "$test_root/driver-families/kexts.txt" 'AGXFixture44.kext'
-omits "$test_root/driver-families/kexts.txt" 'AppleHDA'
+contains "$test_root/driver-families/details/kexts.txt" 'Intel (2 files)'
+contains "$test_root/driver-families/details/kexts.txt" 'AMD / ATI (45 files)'
+contains "$test_root/driver-families/details/kexts.txt" 'Apple / AGX (45 files)'
+contains "$test_root/driver-families/details/kexts.txt" 'NVIDIA / GeForce (1 file)'
+contains "$test_root/driver-families/details/kexts.txt" 'VMware (1 file)'
+contains "$test_root/driver-families/details/kexts.txt" 'Shared graphics (1 file)'
+contains "$test_root/driver-families/details/kexts.txt" 'AppleIntelBDWGraphicsFramebuffer.kext'
+contains "$test_root/driver-families/details/kexts.txt" '[More lines omitted; see raw evidence.]'
+omits "$test_root/driver-families/details/kexts.txt" 'AMDController44.kext'
+omits "$test_root/driver-families/details/kexts.txt" 'AGXFixture44.kext'
+omits "$test_root/driver-families/details/kexts.txt" 'AppleHDA'
 contains "$test_root/driver-families/raw/installed.txt" 'AMDController44.kext'
 contains "$test_root/driver-families/raw/installed.txt" 'AGXFixture44.kext'
 awk '
@@ -302,21 +348,21 @@ awk '
   /^Installed graphics-related extensions/ { installed=NR }
   length($0)>100 { exit 1 }
   END { if (!loaded || !installed || loaded >= installed) exit 1 }
-' "$test_root/driver-families/kexts.txt" || fail 'driver ordering or width'
+' "$test_root/driver-families/details/kexts.txt" || fail 'driver ordering or width'
 (
   kextstat() { echo 'mock loaded-driver query denied' >&2; return 1; }
   main "$test_root/loaded-failed"
 ) > "$test_root/loaded-failed.log" 2>&1 || fail 'failed loaded-driver query'
-contains "$test_root/loaded-failed/kexts.txt" 'mock loaded-driver query denied'
-contains "$test_root/loaded-failed/kexts.txt" 'Installed graphics-related extensions'
-contains "$test_root/loaded-failed/kexts.txt" 'AMDRadeonX4000.kext'
+contains "$test_root/loaded-failed/details/kexts.txt" 'mock loaded-driver query denied'
+contains "$test_root/loaded-failed/details/kexts.txt" 'Installed graphics-related extensions'
+contains "$test_root/loaded-failed/details/kexts.txt" 'AMDRadeonX4000.kext'
 
 # Supplemental shell write-error test; /dev/full does not exist on macOS.
 if [ -c /dev/full ]; then
   mkdir -p "$test_root/disk-full"
   ln -s /dev/full "$test_root/disk-full/report.md"
   if (main "$test_root/disk-full") > "$test_root/full.log" 2>&1; then fail 'disk full must fail'; fi
-  contains "$test_root/disk-full/summary.txt" 'Diagnostics incomplete:'
+  contains "$test_root/disk-full/details/summary.txt" 'Diagnostics incomplete:'
 fi
 if [ "${GPU_INFO_SHOW_TEST_REPORT:-0}" = 1 ]; then command cat "$valid/report.md"; fi
 echo 'PASS: readable reports, raw evidence, statuses, snapshots, links, and failure handling'
