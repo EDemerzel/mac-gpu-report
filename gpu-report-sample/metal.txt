@@ -1,4 +1,0 @@
-=== Metal system info ===
-
-=== available GPUs ===
-      VRAM (Total): 128 MB

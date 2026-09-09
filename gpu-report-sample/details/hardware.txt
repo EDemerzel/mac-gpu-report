@@ -1,0 +1,44 @@
+Sample copy: identifying values are redacted where present; diagnostic results are retained.
+
+Graphics registry overview
+========================================================================
+Collection started: 2026-09-09 08:33:42 -0500
+Collection ended:   2026-09-09 08:33:45 -0500
+Script version:     2.2.0
+Source revision:    cee9c63
+
+GPU names, VRAM and resolution: display.txt
+An absent registry class does not establish a GPU fault.
+
+Registry: IOFramebuffer
+Result: OK
++-o AppleIntelFramebuffer@0  <class AppleIntelFramebuffer, id 0x1000003fd, registered, matche...
+      "IOFBMemorySize" = 268435456
++-o AppleIntelFramebuffer@1  <class AppleIntelFramebuffer, id 0x1000003fe, registered, matche...
++-o AppleIntelFramebuffer@2  <class AppleIntelFramebuffer, id 0x1000003ff, registered, matche...
+[Long lines shortened; see raw evidence.]
+Evidence: ../raw/IOFramebuffer.txt
+
+Registry: IODisplay
+Result: OK
++-o AppleBacklightDisplay  <class AppleBacklightDisplay, id 0x1000004ca, registered, matched,...
+      "IOClass" = "AppleBacklightDisplay"
+      "IOProviderClass" = "IODisplayConnect"
+      "DisplayProductID" = 40178
+      "DisplayVendorID" = 1552
+[Long lines shortened; see raw evidence.]
+Evidence: ../raw/IODisplay.txt
+
+Registry: IOAccelerator
+Result: OK
++-o IntelAccelerator  <class IntelAccelerator, id 0x1000003fb, registered, matched, active, b...
+      "VRAM,totalMB" = 1536
+      "IOProviderClass" = "IOPCIDevice"
+      "IOClass" = "IntelAccelerator"
+[Long lines shortened; see raw evidence.]
+Evidence: ../raw/IOAccelerator.txt
+
+Registry: IOGPU
+Result: NOT REPORTED
+No matching data reported.
+Evidence: ../raw/IOGPU.txt

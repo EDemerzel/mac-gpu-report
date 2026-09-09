@@ -1,0 +1,34 @@
+Sample copy: identifying values are redacted where present; diagnostic results are retained.
+
+System overview
+========================================================================
+Collection started: 2026-09-09 08:33:42 -0500
+Collection ended:   2026-09-09 08:33:45 -0500
+Script version:     2.2.0
+Source revision:    cee9c63
+
+Operating system
+Result: OK
+ProductName:	macOS
+ProductVersion:	12.7.6
+BuildVersion:	21H1320
+Evidence: ../raw/os.txt
+
+System hardware
+Result: OK
+      Model Name: MacBook Air
+      Model Identifier: MacBookAir7,1
+      Processor Name: Dual-Core Intel Core i7
+      Processor Speed: 2.2 GHz
+      Total Number of Cores: 2
+      Memory: 8 GB
+Evidence: ../raw/hardware.txt
+
+System software
+Result: OK
+      System Version: macOS 12.7.6 (21H1320)
+      Kernel Version: Darwin 21.6.0
+      Boot Mode: Normal
+      System Integrity Protection: Enabled
+      Time since boot: 2:05
+Evidence: ../raw/software.txt

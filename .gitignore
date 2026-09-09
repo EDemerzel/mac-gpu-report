@@ -1,1 +1,3 @@
-gpu-report
+gpu-report/*
+gpu-report.archive-*/
+gpu-report.lock/

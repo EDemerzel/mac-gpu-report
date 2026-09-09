@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graphics registry — GPU diagnostics</title>
+<style>
+:root { color-scheme: light dark; --bg:#f5f7fb; --panel:#fff; --fg:#172033; --border:#c4ccda; --link:#174ea6; --ok:#17652d; --fail:#a11724; --warn:#795000; --info:#174ea6; --muted:#50596a; }
+@media (prefers-color-scheme:dark) { :root { --bg:#141922; --panel:#1e2633; --fg:#edf1f7; --border:#56647a; --link:#9fc5ff; --ok:#8bdfa1; --fail:#ff9ca5; --warn:#f6d074; --info:#9fc5ff; --muted:#bdc6d5; } }
+* { box-sizing:border-box; } body { margin:0 auto; max-width:76rem; padding:1.5rem; background:var(--bg); color:var(--fg); font:1rem/1.6 system-ui,sans-serif; }
+a { color:var(--link); text-underline-offset:.2em; } a:focus-visible { outline:3px solid var(--link); outline-offset:4px; }
+nav { display:flex; flex-wrap:wrap; gap:1rem; } h1 { line-height:1.2; } pre { background:var(--panel); border:1px solid var(--border); border-radius:.6rem; padding:1rem; white-space:pre-wrap; overflow-wrap:anywhere; font: .9rem/1.65 ui-monospace,Menlo,Consolas,monospace; }
+.badge { font-weight:700; border:1px solid currentColor; border-radius:.3rem; padding:.1em .35em; } .ok { color:var(--ok); } .failed { color:var(--fail); } .warning { color:var(--warn); } .info { color:var(--info); } .neutral { color:var(--muted); }
+@media print { :root { color-scheme:light; --bg:white; --panel:white; --fg:black; --border:#777; --link:#174ea6; --ok:#17652d; --fail:#a11724; --warn:#795000; --info:#174ea6; --muted:#50596a; } body { padding:0; } pre { border:0; } }
+</style></head><body><nav aria-label="Report navigation">
+<a href="hardware.txt">Plain-text copy</a>
+<a href="../report.md">Main overview (Markdown)</a>
+</nav>
+<p><strong>Sanitized sample.</strong> Identifying values are redacted where present. Collection metadata and diagnostic results are retained.</p>
+<h1>Graphics registry</h1>
+<p>View the main overview in Markdown preview. Status colors supplement the labels; OK means data was returned, not a GPU health verdict.</p>
+<pre>
+Graphics registry overview
+========================================================================
+Collection started: 2026-09-09 08:33:42 -0500
+Collection ended:   2026-09-09 08:33:45 -0500
+Script version:     2.2.0
+Source revision:    cee9c63
+
+GPU names, VRAM and resolution: display.txt
+An absent registry class does not establish a GPU fault.
+
+Registry: IOFramebuffer
+<span class="badge ok">Result: OK</span>
++-o AppleIntelFramebuffer@0  &lt;class AppleIntelFramebuffer, id 0x1000003fd, registered, matche...
+      &quot;IOFBMemorySize&quot; = 268435456
++-o AppleIntelFramebuffer@1  &lt;class AppleIntelFramebuffer, id 0x1000003fe, registered, matche...
++-o AppleIntelFramebuffer@2  &lt;class AppleIntelFramebuffer, id 0x1000003ff, registered, matche...
+[Long lines shortened; see raw evidence.]
+Evidence: <a href="../raw/IOFramebuffer.txt">../raw/IOFramebuffer.txt</a>
+
+Registry: IODisplay
+<span class="badge ok">Result: OK</span>
++-o AppleBacklightDisplay  &lt;class AppleBacklightDisplay, id 0x1000004ca, registered, matched,...
+      &quot;IOClass&quot; = &quot;AppleBacklightDisplay&quot;
+      &quot;IOProviderClass&quot; = &quot;IODisplayConnect&quot;
+      &quot;DisplayProductID&quot; = 40178
+      &quot;DisplayVendorID&quot; = 1552
+[Long lines shortened; see raw evidence.]
+Evidence: <a href="../raw/IODisplay.txt">../raw/IODisplay.txt</a>
+
+Registry: IOAccelerator
+<span class="badge ok">Result: OK</span>
++-o IntelAccelerator  &lt;class IntelAccelerator, id 0x1000003fb, registered, matched, active, b...
+      &quot;VRAM,totalMB&quot; = 1536
+      &quot;IOProviderClass&quot; = &quot;IOPCIDevice&quot;
+      &quot;IOClass&quot; = &quot;IntelAccelerator&quot;
+[Long lines shortened; see raw evidence.]
+Evidence: <a href="../raw/IOAccelerator.txt">../raw/IOAccelerator.txt</a>
+
+Registry: IOGPU
+<span class="badge neutral">Result: NOT REPORTED</span>
+No matching data reported.
+Evidence: <a href="../raw/IOGPU.txt">../raw/IOGPU.txt</a>
+</pre><p>Preview text may be shortened; evidence links contain the full captured output. Reports are not anonymized. Review before sharing.</p></body></html>
